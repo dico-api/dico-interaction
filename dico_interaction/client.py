@@ -2,7 +2,7 @@ import typing
 import asyncio
 import logging
 
-from dico import Interaction, ApplicationCommand, ApplicationCommandOption
+from dico import ApplicationCommand, ApplicationCommandOption
 
 from .command import SlashCommand
 from .context import InteractionContext
@@ -16,7 +16,7 @@ class InteractionClient:
         self.logger = logging.Logger("dico.interaction")
         self.respond_via_endpoint = respond_via_endpoint
 
-    async def receive(self, interaction: Interaction):
+    async def receive(self, interaction: InteractionContext):
         if not isinstance(interaction, InteractionContext):
             interaction = InteractionContext.from_interaction(interaction)
         if interaction.type.application_command:
@@ -43,6 +43,6 @@ class InteractionClient:
         def wrap(coro):
             command = ApplicationCommand(name, description, options, default_permission)
             slash = SlashCommand(coro, command)
-            self.commands["name"] = slash
+            self.commands[name] = slash
             return slash
         return wrap

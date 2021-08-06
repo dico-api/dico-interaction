@@ -9,12 +9,12 @@ class InteractionContext(Interaction):
         self.respond_via_endpoint = kwargs.get("respond_via_endpoint", True)
         self.response = asyncio.Future()
 
-    def create_response(self, interaction_response: InteractionResponse):
+    async def create_response(self, interaction_response: InteractionResponse):
         if not self.respond_via_endpoint:
             self.response.set_result(interaction_response)
         else:
-            super().create_response(interaction_response)
+            return await super().create_response(interaction_response)
 
     @classmethod
     def from_interaction(cls, interaction: Interaction):
-        raise NotImplementedError
+        return cls(interaction.client, interaction.raw)

@@ -6,5 +6,5 @@ class SlashCommand:
         self.coro = coro
         self.command = command
 
-    def invoke(self):
-        return self.coro
+    async def invoke(self, interaction, *args, **kwargs):
+        return await self.coro(interaction, *args, **kwargs)

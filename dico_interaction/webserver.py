@@ -35,14 +35,19 @@ class InteractionWebserver:
     async def receive_interaction(self, request: sanic.Request):
         if request.json["type"] == 1:
             return json({"type": 1})
-        interaction = InteractionContext.create(self.dico_api, request.json)
+        payload = request.json
+        payload["respond_via_endpoint"] = False
+        interaction = InteractionContext.create(self.dico_api, payload)
         return json(await self.interaction.receive(interaction))  # This returns initial response.
 
     async def verify_security(self, request: sanic.Request):
+        if request.method != "POST":
+            return
         try:
             sign = request.headers["X-Signature-Ed25519"]
             message = request.headers["X-Signature-Timestamp"].encode() + request.body
             self.__verify_key.verify(message, bytes.fromhex(sign))
+            return None
         except (BadSignatureError, KeyError):
             return abort(401, "Invalid Signature")
 
