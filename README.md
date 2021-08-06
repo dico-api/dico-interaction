@@ -2,7 +2,7 @@
 Interaction module for dico.
 
 ## Features
-- Webserver included, powered by Sanic.
+- Webserver included, powered by aiohttp.
 
 ## Example
 

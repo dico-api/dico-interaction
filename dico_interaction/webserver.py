@@ -1,13 +1,11 @@
 import asyncio
 import typing
 
+from aiohttp import web
+
 import dico
 from dico.api import APIClient
 from dico.http.async_http import AsyncHTTPRequest
-
-import sanic
-from sanic.response import json
-from sanic.exceptions import abort
 
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
@@ -24,36 +22,49 @@ class InteractionWebserver:
                  loop: asyncio.AbstractEventLoop = None,
                  allowed_mentions: dico.AllowedMentions = None,
                  application_id: typing.Union[int, str, dico.Snowflake] = None):
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or interaction.loop or asyncio.get_event_loop()
         self.dico_api = APIClient(token, base=AsyncHTTPRequest, loop=self.loop, default_allowed_mentions=allowed_mentions, application_id=application_id)
         self.interaction = interaction
         self.__verify_key = VerifyKey(bytes.fromhex(public_key))
-        self.sanic_webserver = sanic.Sanic("dico_interaction")
-        self.sanic_webserver.add_route(self.receive_interaction, "/", methods=["POST"])
-        self.sanic_webserver.register_middleware(self.verify_security)
+        self.webserver = web.Application(loop=self.loop, middlewares=[self.verify_security])
+        self.webserver.router.add_post("/", self.receive_interaction)
 
-    async def receive_interaction(self, request: sanic.Request):
-        if request.json["type"] == 1:
-            return json({"type": 1})
-        payload = request.json
+    async def receive_interaction(self, request: web.Request):
+        body = await request.json()
+        if body["type"] == 1:
+            return web.json_response({"type": 1})
+        payload = body
         payload["respond_via_endpoint"] = False
         interaction = InteractionContext.create(self.dico_api, payload)
-        return json(await self.interaction.receive(interaction))  # This returns initial response.
+        return web.json_response(await self.interaction.receive(interaction))  # This returns initial response.
 
-    async def verify_security(self, request: sanic.Request):
+    @web.middleware
+    async def verify_security(self, request: web.Request, handler):
         if request.method != "POST":
-            return
+            return await handler(request)
         try:
             sign = request.headers["X-Signature-Ed25519"]
-            message = request.headers["X-Signature-Timestamp"].encode() + request.body
+            message = request.headers["X-Signature-Timestamp"].encode() + await request.read()
             self.__verify_key.verify(message, bytes.fromhex(sign))
-            return None
+            return await handler(request)
         except (BadSignatureError, KeyError):
-            return abort(401, "Invalid Signature")
+            return web.Response(text="Invalid Signature", status=401)
 
-    def run(self, *args, **kwargs):
-        self.sanic_webserver.run(*args, **kwargs)
+    async def start(self, host, port, ssl_context):
+        self.runner = web.AppRunner(self.webserver)
+        await self.runner.setup()
+        site = web.TCPSite(self.runner, host, port, ssl_context=ssl_context)
+        await site.start()
 
     async def close(self):
         await self.dico_api.http.close()
-        self.sanic_webserver.stop()
+        await self.runner.cleanup()
+
+    def run(self, *args, **kwargs):
+        try:
+            self.loop.create_task(self.start(*args, **kwargs))
+            self.loop.run_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.loop.run_until_complete(self.close())
