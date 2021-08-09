@@ -35,6 +35,7 @@ class InteractionWebserver:
             return web.json_response({"type": 1})
         payload = body
         payload["respond_via_endpoint"] = False
+        payload["logger"] = self.interaction.logger
         interaction = InteractionContext.create(self.dico_api, payload)
         return web.json_response(await self.interaction.receive(interaction))  # This returns initial response.
 

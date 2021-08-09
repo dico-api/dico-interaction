@@ -18,7 +18,7 @@ class InteractionClient:
 
     async def receive(self, interaction: InteractionContext):
         if not isinstance(interaction, InteractionContext):
-            interaction = InteractionContext.from_interaction(interaction)
+            interaction = InteractionContext.from_interaction(interaction, self.logger)
         if interaction.type.application_command:
             invoke = self.commands.get(interaction.data.name)
         elif interaction.type.message_component:
