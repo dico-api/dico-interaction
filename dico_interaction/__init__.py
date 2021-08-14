@@ -7,5 +7,6 @@ Interaction module for dico.
 """
 
 from .client import InteractionClient
+from .command import InteractionCommand, option
 from .context import InteractionContext
 from .webserver import InteractionWebserver

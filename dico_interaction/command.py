@@ -1,4 +1,5 @@
-from dico import ApplicationCommand, Snowflake, ApplicationCommandOption
+import typing
+from dico import ApplicationCommand, Snowflake, ApplicationCommandOption, ApplicationCommandOptionType, ApplicationCommandOptionChoice
 
 from .exception import InvalidOptionParameter
 from .utils import read_function, to_option_type
@@ -12,6 +13,23 @@ class InteractionCommand:
         self.subcommand = subcommand
         self.subcommand_group = subcommand_group
 
+        if hasattr(self.coro, "_extra_options"):
+            self.add_options(*self.coro._extra_options)
+
+        opts = self.command.options
+        param_data = read_function(self.coro)
+        if param_data and not opts:
+            for k, v in param_data.items():
+                try:
+                    opt = ApplicationCommandOption(option_type=to_option_type(v["annotation"]),
+                                                   name=k,
+                                                   description="No description.",
+                                                   required=v["required"])
+                    opts.append(opt)
+                except NotImplementedError:
+                    raise TypeError("unsupported type detected, in this case please manually pass options param to command decorator.") from None
+        self.command.options = opts
+
     async def invoke(self, interaction, options: dict):
         param_data = read_function(self.coro)
         required_options = {k: v for k, v in param_data.items() if v["required"]}
@@ -21,17 +39,29 @@ class InteractionCommand:
             raise InvalidOptionParameter
         return await self.coro(interaction, **options)
 
-    def get_options(self):
-        resp = self.command.options
-        param_data = read_function(self.coro)
-        if param_data and not resp:
-            for k, v in param_data.items():
-                try:
-                    option = ApplicationCommandOption(option_type=to_option_type(v["annotation"]),
-                                                      name=k,
-                                                      description="No description.",
-                                                      required=v["required"])
-                    resp.append(option)
-                except NotImplementedError:
-                    raise TypeError("unsupported type detected, in this case please manually pass options param to command decorator.") from None
-        return resp
+    def add_options(self, *options: ApplicationCommandOption):
+        self.command.options.extend(options)
+
+
+def option(option_type: typing.Union[ApplicationCommandOptionType, int],
+           *,
+           name: str,
+           description: str,
+           required: bool = False,
+           choices: typing.List[ApplicationCommandOptionChoice] = None,
+           options: typing.List[ApplicationCommandOption] = None):
+    if int(option_type) == ApplicationCommandOptionType.SUB_COMMAND_GROUP and choices:
+        raise TypeError("choices is not allowed if option type is SUB_COMMAND_GROUP.")
+    if int(option_type) == ApplicationCommandOptionType.SUB_COMMAND_GROUP and not options:
+        raise TypeError("you must pass options if option type is SUB_COMMAND_GROUP.")
+    option_to_add = ApplicationCommandOption(option_type=option_type, name=name, description=description, required=required, choices=choices, options=options)
+
+    def wrap(maybe_cmd):
+        if isinstance(maybe_cmd, InteractionCommand):
+            maybe_cmd.add_options(option_to_add)
+        else:
+            if not hasattr(maybe_cmd, "_extra_options"):
+                maybe_cmd._extra_options = []
+            maybe_cmd._extra_options.append(option_to_add)
+        return maybe_cmd
+    return wrap

@@ -180,7 +180,6 @@ class InteractionClient:
         def wrap(coro):
             command = ApplicationCommand(name, description, command_type, options, default_permission)
             cmd = InteractionCommand(coro, command, guild_id, subcommand, subcommand_group)
-            command.options = cmd.get_options()
             self.add_command(cmd)
             return cmd
         return wrap
