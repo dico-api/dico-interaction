@@ -1,3 +1,4 @@
+import sys
 import typing
 import asyncio
 import logging
@@ -6,6 +7,7 @@ import traceback
 from dico import ApplicationCommand, ApplicationCommandTypes, ApplicationCommandOption, ApplicationCommandOptionType, Snowflake, Client
 
 from .command import InteractionCommand
+from .component import ComponentCallback
 from .context import InteractionContext
 
 
@@ -50,7 +52,11 @@ class InteractionClient:
         if interaction.type.application_command:
             target = self.get_command(interaction)
         elif interaction.type.message_component:
-            target = self.components.get(interaction.data.name)
+            target = self.components.get(interaction.data.custom_id)
+            if not target:
+                maybe = [x for x in self.components if interaction.data.custom_id.startswith(x)]
+                if maybe:
+                    target = self.components.get(maybe[0])
         else:
             return
 
@@ -112,7 +118,7 @@ class InteractionClient:
                 interaction.client.dispatch("interaction_error", interaction, ex)
             else:
                 tb = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
-                print(f"Exception while executing command {interaction.data.name}:\n{tb}")
+                print(f"Exception while executing command {interaction.data.name}:\n{tb}", file=sys.stderr)
 
     def wait_interaction(self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None):
         if not self.client:
@@ -154,7 +160,7 @@ class InteractionClient:
     # def add_component_callback(self, custom_id: str, ):
 
     def command(self,
-                name: str,
+                name: str = None,
                 *,
                 subcommand: str = None,
                 subcommand_group: str = None,
@@ -191,14 +197,14 @@ class InteractionClient:
                                                options=options)
 
         def wrap(coro):
-            command = ApplicationCommand(name, description, command_type, options, default_permission)
+            command = ApplicationCommand(name or coro.__name__, description, command_type, options, default_permission)
             cmd = InteractionCommand(coro, command, guild_id, subcommand, subcommand_group)
             self.add_command(cmd)
             return cmd
         return wrap
 
     def slash(self,
-              name: str,
+              name: str = None,
               *,
               subcommand: str = None,
               subcommand_group: str = None,
@@ -218,7 +224,16 @@ class InteractionClient:
                             default_permission=default_permission,
                             guild_id=guild_id)
 
-    def context_menu(self, name: str, menu_type: typing.Union[int, ApplicationCommandTypes], guild_id: typing.Union[int, str, Snowflake] = None):
+    def context_menu(self,
+                     name: str = None,
+                     menu_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.MESSAGE,
+                     guild_id: typing.Union[int, str, Snowflake] = None):
         if int(menu_type) == ApplicationCommandTypes.CHAT_INPUT:
             raise TypeError("unsupported context menu type for context_menu decorator.")
         return self.command(name=name, description="", command_type=menu_type, guild_id=guild_id)
+
+    def component_callback(self, custom_id: str = None):
+        def wrap(coro):
+            self.components[custom_id or coro.__name__] = ComponentCallback(coro)
+            return coro
+        return wrap
