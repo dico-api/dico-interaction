@@ -13,8 +13,7 @@ from dico import Client
 from dico_interaction import InteractionClient, InteractionContext
 
 client = Client("BOT_TOKEN")
-interaction = InteractionClient()
-client.on_interaction_create = interaction.receive
+interaction = InteractionClient(client=client)
 
 
 @interaction.slash(name="hello", description="Say hello.")

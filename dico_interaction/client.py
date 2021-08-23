@@ -11,6 +11,7 @@ from .context import InteractionContext
 
 class InteractionClient:
     def __init__(self,
+                 *,
                  loop: asyncio.AbstractEventLoop = None,
                  respond_via_endpoint: bool = True,
                  client: typing.Optional[Client] = None,
@@ -31,6 +32,9 @@ class InteractionClient:
         elif auto_overwrite_commands:
             pass
 
+        if self.client:
+            self.client.on_interaction_create = self.receive
+
     async def overwrite_commands(self):
         if self.client.websocket_closed:
             await self.client.wait("ready")  # TODO: better implementation
@@ -41,6 +45,8 @@ class InteractionClient:
     async def receive(self, interaction: InteractionContext):
         if not isinstance(interaction, InteractionContext):
             interaction = InteractionContext.from_interaction(interaction, self.logger)
+        if self.client:
+            self.client.dispatch("interaction", interaction)
         if interaction.type.application_command:
             target = self.get_command(interaction)
         elif interaction.type.message_component:
@@ -108,6 +114,11 @@ class InteractionClient:
                 tb = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
                 print(f"Exception while executing command {interaction.data.name}:\n{tb}")
 
+    def wait_interaction(self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None):
+        if not self.client:
+            raise AttributeError("you cannot use wait_interaction if you didn't pass client to parameter.")
+        return self.client.wait("interaction", timeout=timeout, check=check)
+
     def export_commands(self):
         raise NotImplementedError
 
@@ -139,6 +150,8 @@ class InteractionClient:
             if name in self.commands:
                 raise
             self.commands[name] = interaction
+
+    # def add_component_callback(self, custom_id: str, ):
 
     def command(self,
                 name: str,
