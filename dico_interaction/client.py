@@ -12,12 +12,20 @@ from .context import InteractionContext
 
 
 class InteractionClient:
+    """
+    This handles all interaction.
+
+    :param loop: Asyncio loop instance to use in this client. Default ``asyncio.get_event_loop()``.
+    :param respond_via_endpoint: Whether to respond via endpoint, which is for gateway response. Otherwise, set to ``False``. Default ``True``.
+    :param client: Optional dico client. Passing this enables automatic command register, wait_interaction, and auto event registration.
+    :param auto_register_commands: Whether to automatically register commands. Default ``False``.
+    """
     def __init__(self,
                  *,
                  loop: asyncio.AbstractEventLoop = None,
                  respond_via_endpoint: bool = True,
                  client: typing.Optional[Client] = None,
-                 auto_overwrite_commands: bool = False):
+                 auto_register_commands: bool = False):
         self.loop = loop or asyncio.get_event_loop()
 
         # Storing commands separately is to handle easily.
@@ -29,22 +37,35 @@ class InteractionClient:
         self.logger = logging.Logger("dico.interaction")
         self.respond_via_endpoint = respond_via_endpoint
         self.client = client
-        if auto_overwrite_commands and not self.client:
+        if auto_register_commands and not self.client:
             raise ValueError("You must pass dico.Client to use auto_overwrite_commands in InteractionClient.")
-        elif auto_overwrite_commands:
+        elif auto_register_commands:
             pass
 
         if self.client:
             self.client.on_interaction_create = self.receive
 
-    async def overwrite_commands(self):
+    async def register_commands(self):
+        """
+        Automatically registers command to discord.
+        """
         if self.client.websocket_closed:
             await self.client.wait("ready")  # TODO: better implementation
         commands = self.export_commands()
         if commands["global"]:
             await self.client.bulk_overwrite_application_commands(*commands["global"])
 
-    async def receive(self, interaction: InteractionContext):
+    async def receive(self, interaction: InteractionContext) -> typing.Optional[dict]:
+        """
+        Receive and handle interaction.
+
+        .. note::
+            If ``respond_via_endpoint`` is set to ``False``, you can get initial response as dict by awaiting.
+
+        :param interaction: Interaction received.
+        :type interaction: :class:`.context.InteractionContext`
+        :return: Optional[dict]
+        """
         if not isinstance(interaction, InteractionContext):
             interaction = InteractionContext.from_interaction(interaction, self.logger)
         if self.client:
@@ -70,7 +91,14 @@ class InteractionClient:
             resp = await interaction.response
             return resp.to_dict()
 
-    def get_command(self, interaction: InteractionContext):
+    def get_command(self, interaction: InteractionContext) -> typing.Optional[InteractionCommand]:
+        """
+        Gets command based on interaction received.
+
+        :param interaction: Interaction received.
+        :type interaction: :class:`.context.InteractionContext`
+        :return: Optional[InteractionCommand]
+        """
         subcommand_group = self.__extract_subcommand_group(interaction.data.options)
         subcommand = self.__extract_subcommand(subcommand_group.options if subcommand_group else interaction.data.options)
         if subcommand_group:
@@ -94,7 +122,15 @@ class InteractionClient:
             if option.type.sub_command:
                 return option
 
-    async def handle_command(self, target: InteractionCommand, interaction: InteractionContext):
+    async def handle_command(self, target: typing.Union[InteractionCommand, ComponentCallback], interaction: InteractionContext):
+        """
+        Handles command or callback.
+
+        :param target: What to execute.
+        :type target: Union[:class:`.command.InteractionCommand`, :class:`.component.ComponentCallback`]
+        :param interaction: Context to use.
+        :type interaction: :class:`.context.InteractionContext`
+        """
         subcommand_group = self.__extract_subcommand_group(interaction.data.options)
         subcommand = self.__extract_subcommand(subcommand_group.options if subcommand_group else interaction.data.options)
         options = {}
@@ -118,9 +154,19 @@ class InteractionClient:
                 interaction.client.dispatch("interaction_error", interaction, ex)
             else:
                 tb = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
-                print(f"Exception while executing command {interaction.data.name}:\n{tb}", file=sys.stderr)
+                title = f"Exception while executing command {interaction.data.name}" if interaction.type.application_command else \
+                    f"Exception while executing callback of {interaction.data.custom_id}"
+                print(f"{title}:\n{tb}", file=sys.stderr)
 
-    def wait_interaction(self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None):
+    def wait_interaction(self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None) -> InteractionContext:
+        """
+        Waits for interaction. Basically same as ``dico.Client.wait`` but with ``interaction`` event as default.
+
+        :param timeout: When to timeout. Default ``None``, which will wait forever.
+        :param check: Check to apply.
+        :return: :class:`.context.InteractionContext`
+        :raises asyncio.TimeoutError: Timed out.
+        """
         if not self.client:
             raise AttributeError("you cannot use wait_interaction if you didn't pass client to parameter.")
         return self.client.wait("interaction", timeout=timeout, check=check)
