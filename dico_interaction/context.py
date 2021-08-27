@@ -80,12 +80,6 @@ class InteractionContext(Interaction):
         else:
             return await super().create_response(interaction_response)
 
-    @property
-    def target(self):
-        if not self.type.application_command or self.data.type.chat_input:
-            raise AttributeError("target is only available to context menu.")
-        return self.data.resolved.get(self.data.target_id)
-
     @classmethod
     def from_interaction(cls, interaction: Interaction, logger):
         resp = interaction.raw
