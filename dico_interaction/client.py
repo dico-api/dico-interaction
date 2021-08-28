@@ -15,10 +15,21 @@ class InteractionClient:
     """
     This handles all interaction.
 
+    .. note::
+        ``auto_register_commands`` must be enabled to properly respond via webserver.
+
     :param loop: Asyncio loop instance to use in this client. Default ``asyncio.get_event_loop()``.
     :param respond_via_endpoint: Whether to respond via endpoint, which is for gateway response. Otherwise, set to ``False``. Default ``True``.
     :param client: Optional dico client. Passing this enables automatic command register, wait_interaction, and auto event registration.
     :param auto_register_commands: Whether to automatically register commands. Default ``False``.
+
+    :ivar loop: asyncio Loop of the client.
+    :ivar commands: Dict of commands registered to the client.
+    :ivar subcommands: Dict of subcommands registered to the client.
+    :ivar subcommand_groups: Dict of subcommand groups registered to the client.
+    :ivar components: Dict of component callbacks registered to the client.
+    :ivar logger: Logger of the client.
+    :ivar respond_via_endpoint: Whether to automatically register commands.
     """
     def __init__(self,
                  *,

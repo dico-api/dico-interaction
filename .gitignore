@@ -2,3 +2,5 @@
 __pycache__
 test
 dico
+_build
+_static

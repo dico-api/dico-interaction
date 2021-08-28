@@ -1,3 +1,5 @@
 dico-api
 aiohttp
 PyNaCl
+sphinx
+sphinx-rtd-theme
