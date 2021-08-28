@@ -4,9 +4,14 @@ Interaction module for dico.
 ## Features
 - Webserver included, powered by aiohttp.
 
+## Installation
+```
+pip install -U dico-interaction
+```
+
 ## Example
 
-## Gateway Client
+### Gateway Client
 
 Application Command:
 ```py

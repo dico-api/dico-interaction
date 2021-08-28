@@ -11,3 +11,5 @@ from .command import InteractionCommand, option
 from .component import ComponentCallback
 from .context import InteractionContext
 from .webserver import InteractionWebserver
+
+__version__ = "0.0.1"

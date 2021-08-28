@@ -7,8 +7,14 @@ import dico
 from dico.api import APIClient
 from dico.http.async_http import AsyncHTTPRequest
 
-from nacl.signing import VerifyKey
-from nacl.exceptions import BadSignatureError
+try:
+    from nacl.signing import VerifyKey
+    from nacl.exceptions import BadSignatureError
+except ImportError:
+    import sys
+    print("PyNaCl not installed, webserver won't be available.", file=sys.stderr)
+    VerifyKey = lambda _: _
+    BadSignatureError = Exception
 
 from .client import InteractionClient
 from .context import InteractionContext
