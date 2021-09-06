@@ -1,12 +1,12 @@
 import typing
-from dico import ApplicationCommand, Snowflake, ApplicationCommandOption, ApplicationCommandOptionType, ApplicationCommandOptionChoice, ApplicationCommandTypes
+from dico import ApplicationCommand, Snowflake, ApplicationCommandOption, ApplicationCommandOptionType, ApplicationCommandOptionChoice
 
 from .exception import InvalidOptionParameter
 from .utils import read_function, to_option_type
 
 
 class InteractionCommand:
-    def __init__(self, coro, command: ApplicationCommand, guild_id: Snowflake = None, subcommand: str = None,subcommand_group: str = None):
+    def __init__(self, coro, command: ApplicationCommand, guild_id: Snowflake = None, subcommand: str = None, subcommand_group: str = None):
         self.coro = coro
         self.command = command
         self.guild_id = guild_id
@@ -46,7 +46,7 @@ class InteractionCommand:
         return await self.coro(*args, **options)
 
     def add_options(self, *options: ApplicationCommandOption):
-        if self.__options_from_args:
+        if hasattr(self, "__options_from_args") and self.__options_from_args:
             self.command.options = []
             self.__options_from_args = False
         self.command.options.extend(options)

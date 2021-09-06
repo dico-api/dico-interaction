@@ -52,10 +52,14 @@ class InteractionClient:
         self.client = client
         if self.client is not None:
             self.client.interaction = self
+
+        if auto_register_commands:
+            raise NotImplementedError("I gave up, sorry.")
+
         if auto_register_commands and not self.client:
             raise ValueError("You must pass dico.Client to use auto_overwrite_commands in InteractionClient.")
         elif auto_register_commands:
-            pass
+            self.loop.create_task(self.register_commands())
 
         if self.client:
             self.client.on_interaction_create = self.receive
@@ -64,11 +68,13 @@ class InteractionClient:
         """
         Automatically registers command to discord.
         """
-        if self.client.websocket_closed:
-            await self.client.wait("ready")  # TODO: better implementation
+        await self.client.wait_ready()
         commands = self.export_commands()
         if commands["global"]:
             await self.client.bulk_overwrite_application_commands(*commands["global"])
+        if commands["guild"]:
+            for k, v in commands["guild"].items():
+                await self.client.bulk_overwrite_application_commands(*v, guild=k)
 
     async def receive(self, interaction: InteractionContext) -> typing.Optional[dict]:
         """
@@ -81,6 +87,7 @@ class InteractionClient:
         :type interaction: :class:`.context.InteractionContext`
         :return: Optional[dict]
         """
+        print(interaction)
         if not isinstance(interaction, InteractionContext):
             interaction = InteractionContext.from_interaction(interaction, self.logger)
         if self.client:
@@ -165,7 +172,7 @@ class InteractionClient:
         try:
             await target.invoke(interaction, options)
         except Exception as ex:
-            if hasattr(interaction.client, "dispatch") and not interaction.client.events.get("interaction_error"):
+            if hasattr(interaction.client, "dispatch") and interaction.client.events.get("interaction_error"):
                 interaction.client.dispatch("interaction_error", interaction, ex)
             else:
                 tb = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
@@ -187,13 +194,18 @@ class InteractionClient:
         return self.client.wait("interaction", timeout=timeout, check=check)
 
     def export_commands(self):
-        raise NotImplementedError
+        raise NotImplementedError("I gave up.")
 
         global_body = []  # noqa
         pre_global_body = {}
         guild_body = {}
         pre_guild_body = {}
-        return {"global": global_body, "guild": guild_body}
+
+        # extracted_
+
+        for k, v in pre_guild_body.items():
+            guild_body[k] = [*v.values()]
+        return {"global": [*pre_global_body.values()], "guild": guild_body}
 
     def add_command(self, interaction: InteractionCommand):
         subcommand_group = interaction.subcommand_group
@@ -247,8 +259,6 @@ class InteractionClient:
             del self.components[callback.custom_id]
         else:
             raise
-
-    # def add_component_callback(self, custom_id: str, ):
 
     def command(self,
                 name: str = None,

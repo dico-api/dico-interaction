@@ -24,10 +24,10 @@ def command(name: str = None,
             raise TypeError("subcommand is exclusive to CHAT_INPUT.")
         if not subcommand_description:
             raise ValueError("subcommand_description must be passed if subcommand is set.")
-        options = ApplicationCommandOption(option_type=ApplicationCommandOptionType.SUB_COMMAND,
-                                           name=subcommand,
-                                           description=subcommand_description,
-                                           options=options)
+        options = [ApplicationCommandOption(option_type=ApplicationCommandOptionType.SUB_COMMAND,
+                                            name=subcommand,
+                                            description=subcommand_description,
+                                            options=options.copy())]
     if subcommand_group:
         if int(command_type) != ApplicationCommandTypes.CHAT_INPUT:
             raise TypeError("subcommand_group is exclusive to CHAT_INPUT.")
@@ -35,10 +35,11 @@ def command(name: str = None,
             raise ValueError("subcommand must be passed if subcommand_group is set.")
         if not subcommand_group_description:
             raise ValueError("subcommand_group_description must be passed if subcommand_group is set.")
-        options = ApplicationCommandOption(option_type=ApplicationCommandOptionType.SUB_COMMAND_GROUP,
-                                           name=subcommand,
-                                           description=subcommand_group_description,
-                                           options=options)
+        options = options.copy()
+        options = [ApplicationCommandOption(option_type=ApplicationCommandOptionType.SUB_COMMAND_GROUP,
+                                            name=subcommand_group,
+                                            description=subcommand_group_description,
+                                            options=options.copy())]
 
     def wrap(coro):
         _command = ApplicationCommand(name or coro.__name__, description, command_type, options, default_permission)
