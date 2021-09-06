@@ -1,12 +1,12 @@
 import typing
-from dico import ApplicationCommand, Snowflake, ApplicationCommandOption, ApplicationCommandOptionType, ApplicationCommandOptionChoice
+from dico import ApplicationCommand, Snowflake, ApplicationCommandOption, ApplicationCommandOptionType, ApplicationCommandOptionChoice, ApplicationCommandTypes
 
 from .exception import InvalidOptionParameter
 from .utils import read_function, to_option_type
 
 
 class InteractionCommand:
-    def __init__(self, coro, command: ApplicationCommand, guild_id: Snowflake = None, subcommand: str = None, subcommand_group: str = None):
+    def __init__(self, coro, command: ApplicationCommand, guild_id: Snowflake = None, subcommand: str = None,subcommand_group: str = None):
         self.coro = coro
         self.command = command
         self.guild_id = guild_id
@@ -18,7 +18,8 @@ class InteractionCommand:
 
         opts = self.command.options
         param_data = read_function(self.coro)
-        if param_data and not opts:
+        self.__options_from_args = param_data and not opts
+        if self.__options_from_args:
             for k, v in param_data.items():
                 try:
                     opt = ApplicationCommandOption(option_type=to_option_type(v["annotation"]),
@@ -29,6 +30,10 @@ class InteractionCommand:
                 except NotImplementedError:
                     raise TypeError("unsupported type detected, in this case please manually pass options param to command decorator.") from None
         self.command.options = opts
+        self.self_or_cls = None
+
+    def register_self_or_cls(self, addon):
+        self.self_or_cls = addon
 
     async def invoke(self, interaction, options: dict):
         param_data = read_function(self.coro)
@@ -37,9 +42,13 @@ class InteractionCommand:
         missing_params = [x for x in options if x not in param_data]
         if missing_options or missing_params:
             raise InvalidOptionParameter
-        return await self.coro(interaction, **options)
+        args = (interaction,) if self.self_or_cls is None else (self.self_or_cls, interaction)
+        return await self.coro(*args, **options)
 
     def add_options(self, *options: ApplicationCommandOption):
+        if self.__options_from_args:
+            self.command.options = []
+            self.__options_from_args = False
         self.command.options.extend(options)
 
 
@@ -64,4 +73,5 @@ def option(option_type: typing.Union[ApplicationCommandOptionType, int],
                 maybe_cmd._extra_options = []
             maybe_cmd._extra_options.append(option_to_add)
         return maybe_cmd
+
     return wrap

@@ -7,6 +7,7 @@ import traceback
 from dico import ApplicationCommand, ApplicationCommandTypes, ApplicationCommandOption, ApplicationCommandOptionType, Snowflake, Client
 
 from .command import InteractionCommand
+from .deco import command as command_deco
 from .component import ComponentCallback
 from .context import InteractionContext
 
@@ -16,7 +17,8 @@ class InteractionClient:
     This handles all interaction.
 
     .. note::
-        ``auto_register_commands`` must be enabled to properly respond via webserver.
+        - ``auto_register_commands`` must be enabled to properly respond via webserver.
+        - Attribute ``interaction`` will be automatically added to your websocket client if you pass param ``client``.
 
     :param loop: Asyncio loop instance to use in this client. Default ``asyncio.get_event_loop()``.
     :param respond_via_endpoint: Whether to respond via endpoint, which is for gateway response. Otherwise, set to ``False``. Default ``True``.
@@ -48,6 +50,8 @@ class InteractionClient:
         self.logger = logging.Logger("dico.interaction")
         self.respond_via_endpoint = respond_via_endpoint
         self.client = client
+        if self.client is not None:
+            self.client.interaction = self
         if auto_register_commands and not self.client:
             raise ValueError("You must pass dico.Client to use auto_overwrite_commands in InteractionClient.")
         elif auto_register_commands:
@@ -214,6 +218,36 @@ class InteractionClient:
                 raise
             self.commands[name] = interaction
 
+    def remove_command(self, interaction: InteractionCommand):
+        subcommand_group = interaction.subcommand_group
+        subcommand = interaction.subcommand
+        name = interaction.command.name
+        if subcommand_group:
+            if name in self.subcommand_groups and subcommand_group in self.subcommand_groups[name] and \
+                    subcommand in self.subcommand_groups[name][subcommand_group]:
+                del self.subcommand_groups[name][subcommand_group][subcommand]
+            else:
+                raise
+        elif subcommand:
+            if name in self.subcommands and subcommand in self.subcommands[name]:
+                del self.subcommands[name][subcommand]
+            else:
+                raise
+        else:
+            if name in self.commands:
+                del self.commands[name]
+            else:
+                raise
+
+    def add_callback(self, callback: ComponentCallback):
+        self.components[callback.custom_id] = callback
+
+    def remove_callback(self, callback: ComponentCallback):
+        if callback.custom_id in self.components:
+            del self.components[callback.custom_id]
+        else:
+            raise
+
     # def add_component_callback(self, custom_id: str, ):
 
     def command(self,
@@ -228,34 +262,17 @@ class InteractionClient:
                 options: typing.List[ApplicationCommandOption] = None,
                 default_permission: bool = True,
                 guild_id: typing.Union[int, str, Snowflake] = None):
-        if int(command_type) == ApplicationCommandTypes.CHAT_INPUT and not description:
-            raise ValueError("description must be passed if type is CHAT_INPUT.")
-        description = description or ""
-        options = options or []
-        if subcommand:
-            if int(command_type) != ApplicationCommandTypes.CHAT_INPUT:
-                raise TypeError("subcommand is exclusive to CHAT_INPUT.")
-            if not subcommand_description:
-                raise ValueError("subcommand_description must be passed if subcommand is set.")
-            options = ApplicationCommandOption(option_type=ApplicationCommandOptionType.SUB_COMMAND,
-                                               name=subcommand,
-                                               description=subcommand_description,
-                                               options=options)
-        if subcommand_group:
-            if int(command_type) != ApplicationCommandTypes.CHAT_INPUT:
-                raise TypeError("subcommand_group is exclusive to CHAT_INPUT.")
-            if not subcommand:
-                raise ValueError("subcommand must be passed if subcommand_group is set.")
-            if not subcommand_group_description:
-                raise ValueError("subcommand_group_description must be passed if subcommand_group is set.")
-            options = ApplicationCommandOption(option_type=ApplicationCommandOptionType.SUB_COMMAND_GROUP,
-                                               name=subcommand,
-                                               description=subcommand_group_description,
-                                               options=options)
-
         def wrap(coro):
-            command = ApplicationCommand(name or coro.__name__, description, command_type, options, default_permission)
-            cmd = InteractionCommand(coro, command, guild_id, subcommand, subcommand_group)
+            cmd = command_deco(name,
+                               subcommand=subcommand,
+                               subcommand_group=subcommand_group,
+                               description=description,
+                               subcommand_description=subcommand_description,
+                               subcommand_group_description=subcommand_group_description,
+                               command_type=command_type,
+                               options=options,
+                               default_permission=default_permission,
+                               guild_id=guild_id)(coro)
             self.add_command(cmd)
             return cmd
         return wrap
@@ -291,6 +308,7 @@ class InteractionClient:
 
     def component_callback(self, custom_id: str = None):
         def wrap(coro):
-            self.components[custom_id or coro.__name__] = ComponentCallback(coro)
-            return coro
+            callback = ComponentCallback(custom_id, coro)
+            self.add_callback(callback)
+            return callback
         return wrap
