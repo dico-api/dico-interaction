@@ -87,7 +87,6 @@ class InteractionClient:
         :type interaction: :class:`.context.InteractionContext`
         :return: Optional[dict]
         """
-        print(interaction)
         if not isinstance(interaction, InteractionContext):
             interaction = InteractionContext.from_interaction(interaction, self.logger)
         if self.client:
