@@ -171,7 +171,7 @@ class InteractionClient:
         try:
             await target.invoke(interaction, options)
         except Exception as ex:
-            if hasattr(interaction.client, "dispatch") and interaction.client.events.get("interaction_error"):
+            if hasattr(interaction.client, "dispatch") and interaction.client.events.get("INTERACTION_ERROR"):
                 interaction.client.dispatch("interaction_error", interaction, ex)
             else:
                 tb = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
