@@ -1,6 +1,7 @@
 import typing
 from dico import ApplicationCommandTypes, ApplicationCommandOption, ApplicationCommandOptionType, Snowflake, ApplicationCommand
 from .command import InteractionCommand
+from .context import InteractionContext
 from .component import ComponentCallback
 
 
@@ -76,6 +77,19 @@ def context_menu(name: str = None,
     if int(menu_type) == ApplicationCommandTypes.CHAT_INPUT:
         raise TypeError("unsupported context menu type for context_menu decorator.")
     return command(name=name, description="", command_type=menu_type, guild_id=guild_id)
+
+
+def checks(*funcs: typing.Callable[[InteractionContext], bool]):
+    def wrap(maybe_cmd):
+        if isinstance(maybe_cmd, InteractionCommand):
+            maybe_cmd.checks.extend(funcs)
+        else:
+            if hasattr(maybe_cmd, "_checks"):
+                maybe_cmd._checks.extend(funcs)
+            else:
+                maybe_cmd._checks = [*funcs]
+        return maybe_cmd
+    return wrap
 
 
 def component_callback(custom_id: str = None):

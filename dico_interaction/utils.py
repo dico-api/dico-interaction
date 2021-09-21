@@ -2,6 +2,10 @@ import inspect
 from dico import GuildMember, User, Channel, Role, ApplicationCommandOptionType
 
 
+def is_coro(coro):
+    return inspect.iscoroutinefunction(coro) or inspect.isawaitable(coro) or inspect.iscoroutine(coro)
+
+
 def read_function(func):
     params = [*inspect.signature(func).parameters.values()]
     if params[0].name in ["self", "cls"]:

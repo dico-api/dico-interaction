@@ -171,13 +171,21 @@ class InteractionClient:
         try:
             await target.invoke(interaction, options)
         except Exception as ex:
-            if hasattr(interaction.client, "dispatch") and interaction.client.events.get("INTERACTION_ERROR"):
-                interaction.client.dispatch("interaction_error", interaction, ex)
-            else:
-                tb = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
-                title = f"Exception while executing command {interaction.data.name}" if interaction.type.application_command else \
-                    f"Exception while executing callback of {interaction.data.custom_id}"
-                print(f"{title}:\n{tb}", file=sys.stderr)
+            await self.execute_error_handler(target, interaction, ex)
+
+    async def execute_error_handler(self, target, interaction, ex):
+        if target.self_or_cls:
+            if hasattr(target.self_or_cls, "on_addon_interaction_error") and await target.self_or_cls.on_addon_interaction_error(interaction, ex):
+                return
+            if hasattr(target.self_or_cls, "on_interaction_error") and await target.self_or_cls.on_interaction_error(interaction, ex):
+                return
+        if hasattr(interaction.client, "dispatch") and interaction.client.events.get("INTERACTION_ERROR"):
+            interaction.client.dispatch("interaction_error", interaction, ex)
+        else:
+            tb = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
+            title = f"Exception while executing command {interaction.data.name}" if interaction.type.application_command else \
+                f"Exception while executing callback of {interaction.data.custom_id}"
+            print(f"{title}:\n{tb}", file=sys.stderr)
 
     def wait_interaction(self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None) -> InteractionContext:
         """

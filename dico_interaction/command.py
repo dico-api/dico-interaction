@@ -1,20 +1,30 @@
 import typing
 from dico import ApplicationCommand, Snowflake, ApplicationCommandOption, ApplicationCommandOptionType, ApplicationCommandOptionChoice
 
-from .exception import InvalidOptionParameter
-from .utils import read_function, to_option_type
+from .context import InteractionContext
+from .exception import InvalidOptionParameter, CheckFailed
+from .utils import read_function, to_option_type, is_coro
 
 
 class InteractionCommand:
-    def __init__(self, coro, command: ApplicationCommand, guild_id: Snowflake = None, subcommand: str = None, subcommand_group: str = None):
+    def __init__(self,
+                 coro,
+                 command: ApplicationCommand,
+                 guild_id: Snowflake = None,
+                 subcommand: str = None,
+                 subcommand_group: str = None,
+                 checks: typing.Optional[typing.List[typing.Callable[[InteractionContext], bool]]] = None):
         self.coro = coro
         self.command = command
         self.guild_id = guild_id
         self.subcommand = subcommand
         self.subcommand_group = subcommand_group
+        self.checks = checks or []
 
         if hasattr(self.coro, "_extra_options"):
             self.add_options(*self.coro._extra_options)
+        if hasattr(self.coro, "_checks"):
+            self.checks.extend(self.coro._checks)
 
         opts = self.command.options
         param_data = read_function(self.coro)
@@ -35,7 +45,15 @@ class InteractionCommand:
     def register_self_or_cls(self, addon):
         self.self_or_cls = addon
 
+    async def evaluate_checks(self, interaction: InteractionContext):
+        if self.self_or_cls and hasattr(self.self_or_cls, "addon_interaction_check") and not await self.self_or_cls.addon_interaction_check(interaction):
+            return False
+        resp = [n for n in [(await x(interaction)) if is_coro(x) else x(interaction) for x in self.checks] if not n]
+        return not resp
+
     async def invoke(self, interaction, options: dict):
+        if not await self.evaluate_checks(interaction):
+            raise CheckFailed
         param_data = read_function(self.coro)
         required_options = {k: v for k, v in param_data.items() if v["required"]}
         missing_options = [x for x in required_options if x not in options]

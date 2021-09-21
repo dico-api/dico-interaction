@@ -4,3 +4,7 @@ class InteractionException(Exception):
 
 class InvalidOptionParameter(InteractionException):
     """Received option does not match to command parameter."""
+
+
+class CheckFailed(InteractionException):
+    """Check has failed."""
