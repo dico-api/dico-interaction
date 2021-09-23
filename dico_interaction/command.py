@@ -13,7 +13,7 @@ class InteractionCommand:
                  guild_id: Snowflake = None,
                  subcommand: str = None,
                  subcommand_group: str = None,
-                 checks: typing.Optional[typing.List[typing.Callable[[InteractionContext], bool]]] = None):
+                 checks: typing.Optional[typing.List[typing.Callable[[InteractionContext], typing.Union[bool, typing.Awaitable[bool]]]]] = None):
         self.coro = coro
         self.command = command
         self.guild_id = guild_id

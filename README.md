@@ -3,6 +3,7 @@ Interaction module for dico.
 
 ## Features
 - Webserver included, powered by aiohttp.
+- Easier interaction usage.
 
 ## Installation
 ```

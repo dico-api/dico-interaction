@@ -57,10 +57,10 @@ class InteractionWebserver:
         except (BadSignatureError, KeyError):
             return web.Response(text="Invalid Signature", status=401)
 
-    async def start(self, host, port, ssl_context):
+    async def start(self, *args, **kwargs):
         self.runner = web.AppRunner(self.webserver)
         await self.runner.setup()
-        site = web.TCPSite(self.runner, host, port, ssl_context=ssl_context)
+        site = web.TCPSite(self.runner, *args, **kwargs)
         await site.start()
 
     async def close(self):
