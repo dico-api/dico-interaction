@@ -4,7 +4,15 @@ import asyncio
 import logging
 import traceback
 
-from dico import ApplicationCommand, ApplicationCommandTypes, ApplicationCommandOption, ApplicationCommandOptionType, Snowflake, Client
+from dico import (
+    ApplicationCommand,
+    ApplicationCommandTypes,
+    ApplicationCommandOption,
+    ApplicationCommandInteractionDataOption,
+    ApplicationCommandOptionType,
+    Snowflake,
+    Client
+)
 
 from .command import InteractionCommand
 from .deco import command as command_deco
@@ -130,14 +138,14 @@ class InteractionClient:
             return self.commands.get(interaction.data.name)
 
     @staticmethod
-    def __extract_subcommand_group(options: typing.List[ApplicationCommandOption]):
+    def __extract_subcommand_group(options: typing.List[ApplicationCommandInteractionDataOption]):
         if options:
             option = options[0]  # Only one option is passed if it is subcommand group.
             if option.type.sub_command_group:
                 return option
 
     @staticmethod
-    def __extract_subcommand(options: typing.List[ApplicationCommandOption]):
+    def __extract_subcommand(options: typing.List[ApplicationCommandInteractionDataOption]):
         if options:
             option = options[0]  # Only one option is passed if it is subcommand.
             if option.type.sub_command:
