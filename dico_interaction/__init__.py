@@ -10,7 +10,7 @@ from .client import InteractionClient
 from .command import InteractionCommand, option
 from .component import ComponentCallback
 from .context import InteractionContext
-from .deco import command, slash, context_menu, component_callback
+from .deco import command, slash, context_menu, component_callback, checks
 from .webserver import InteractionWebserver
 
-__version__ = "0.0.3"
+__version__ = "0.0.5"

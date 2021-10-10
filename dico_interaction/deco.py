@@ -79,7 +79,7 @@ def context_menu(name: str = None,
     return command(name=name, description="", command_type=menu_type, guild_id=guild_id)
 
 
-def checks(*funcs: typing.Callable[[InteractionContext], bool]):
+def checks(*funcs: typing.Callable[[InteractionContext], typing.Union[bool, typing.Awaitable[bool]]]):
     def wrap(maybe_cmd):
         if isinstance(maybe_cmd, InteractionCommand):
             maybe_cmd.checks.extend(funcs)
