@@ -236,6 +236,8 @@ class InteractionClient:
 
             if i_command.guild_id is not None:
                 cmds["guild"][i_command.guild_id].append(command)
+            else:
+                cmds["global"].append(command)
         return cmds
 
     def add_command(self, interaction: InteractionCommand):
