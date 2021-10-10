@@ -4,7 +4,15 @@ import asyncio
 import logging
 import traceback
 
-from dico import ApplicationCommand, ApplicationCommandTypes, ApplicationCommandOption, ApplicationCommandOptionType, Snowflake, Client
+from dico import (
+    ApplicationCommand,
+    ApplicationCommandTypes,
+    ApplicationCommandOption,
+    ApplicationCommandInteractionDataOption,
+    ApplicationCommandOptionType,
+    Snowflake,
+    Client
+)
 
 from .command import InteractionCommand
 from .deco import command as command_deco
@@ -52,9 +60,6 @@ class InteractionClient:
         self.client = client
         if self.client is not None:
             self.client.interaction = self
-
-        if auto_register_commands:
-            raise NotImplementedError("I gave up, sorry.")
 
         if auto_register_commands and not self.client:
             raise ValueError("You must pass dico.Client to use auto_overwrite_commands in InteractionClient.")
@@ -130,14 +135,14 @@ class InteractionClient:
             return self.commands.get(interaction.data.name)
 
     @staticmethod
-    def __extract_subcommand_group(options: typing.List[ApplicationCommandOption]):
+    def __extract_subcommand_group(options: typing.List[ApplicationCommandInteractionDataOption]):
         if options:
             option = options[0]  # Only one option is passed if it is subcommand group.
             if option.type.sub_command_group:
                 return option
 
     @staticmethod
-    def __extract_subcommand(options: typing.List[ApplicationCommandOption]):
+    def __extract_subcommand(options: typing.List[ApplicationCommandInteractionDataOption]):
         if options:
             option = options[0]  # Only one option is passed if it is subcommand.
             if option.type.sub_command:
@@ -201,18 +206,37 @@ class InteractionClient:
         return self.client.wait("interaction", timeout=timeout, check=check)
 
     def export_commands(self):
-        raise NotImplementedError("I gave up.")
+        all_guild_ids = set([])
+        for cmd in self.commands.values():
+            if cmd.guild_id is not None:
+                all_guild_ids.add(cmd.guild_id)
+        for cmd in self.subcommands.values():
+            sub_cmd = next(iter(cmd.values()))
+            if sub_cmd.guild_id is not None:
+                all_guild_ids.add(sub_cmd.guild_id)
 
-        global_body = []  # noqa
-        pre_global_body = {}
-        guild_body = {}
-        pre_guild_body = {}
+        cmds = {"global": [], "guild": {g_id: [] for g_id in list(all_guild_ids)}}
+        for k, v in self.commands.items():
+            if v.guild_id is not None:
+                cmds["guild"][v.guild_id].append(v.command)
+            else:
+                cmds["global"].append(v.command)
 
-        # extracted_
+        for k, v in self.subcommands.items():
+            values = iter(v.values())
+            i_command = next(values)
+            command = i_command.command
 
-        for k, v in pre_guild_body.items():
-            guild_body[k] = [*v.values()]
-        return {"global": [*pre_global_body.values()], "guild": guild_body}
+            while True:
+                try:
+                    sub_cmd = next(values).command
+                    command.options.extend(sub_cmd.options)
+                except StopIteration:
+                    break
+
+            if i_command.guild_id is not None:
+                cmds["guild"][i_command.guild_id].append(command)
+        return cmds
 
     def add_command(self, interaction: InteractionCommand):
         subcommand_group = interaction.subcommand_group
