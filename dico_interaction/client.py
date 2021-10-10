@@ -3,6 +3,7 @@ import typing
 import asyncio
 import logging
 import traceback
+import copy
 
 from dico import (
     ApplicationCommand,
@@ -214,22 +215,40 @@ class InteractionClient:
             sub_cmd = next(iter(cmd.values()))
             if sub_cmd.guild_id is not None:
                 all_guild_ids.add(sub_cmd.guild_id)
+        for cmd in self.subcommand_groups.values():
+            sub_cmd_group = next(iter(cmd.values()))
+            sub_cmd = next(iter(sub_cmd_group.values()))
+            if sub_cmd.guild_id is not None:
+                all_guild_ids.add(sub_cmd.guild_id)
 
         cmds = {"global": [], "guild": {g_id: [] for g_id in list(all_guild_ids)}}
+
         for k, v in self.commands.items():
             if v.guild_id is not None:
                 cmds["guild"][v.guild_id].append(v.command)
             else:
                 cmds["global"].append(v.command)
 
-        for k, v in self.subcommands.items():
-            values = iter(v.values())
-            i_command = next(values)
+        new_subcommands = copy.deepcopy(self.subcommands)
+        for k, v in self.subcommand_groups.items():
+            if new_subcommands.get(k) is not None:
+                new_subcommands[k].update(v)
+            else:
+                new_subcommands[k] = v
+
+        for v in map(lambda x: iter(x.values()), new_subcommands.values()):
+            i_command = next(v)
+            if isinstance(i_command, dict):
+                i_command = next(iter(i_command.values()))
             command = i_command.command
 
             while True:
                 try:
-                    sub_cmd = next(values).command
+                    sub_cmd = next(v)
+                    if isinstance(sub_cmd, dict):
+                        sub_cmd = next(iter(sub_cmd.values())).command
+                    else:
+                        sub_cmd = sub_cmd.command
                     command.options.extend(sub_cmd.options)
                 except StopIteration:
                     break
