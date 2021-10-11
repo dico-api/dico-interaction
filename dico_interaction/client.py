@@ -244,11 +244,14 @@ class InteractionClient:
 
             for sub_cmd in v:
                 if isinstance(sub_cmd, dict):
-                    sub_cmd = next(iter(sub_cmd.values())).command
+                    sub_g_cmds = iter(map(lambda x: x.command.options[0], sub_cmd.values()))
+                    sub_g_cmd = next(sub_g_cmds)
+                    for i in sub_g_cmds:
+                        sub_g_cmd.options.extend(i.options)
+                    command.options.append(sub_g_cmd)
                 else:
                     sub_cmd = sub_cmd.command
-                command.options.extend(sub_cmd.options)
-
+                    command.options.extend(sub_cmd.options)
             if i_command.guild_id is not None:
                 cmds["guild"][i_command.guild_id].append(command)
             else:
