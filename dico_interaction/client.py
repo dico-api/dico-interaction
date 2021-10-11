@@ -242,16 +242,12 @@ class InteractionClient:
                 i_command = next(iter(i_command.values()))
             command = i_command.command
 
-            while True:
-                try:
-                    sub_cmd = next(v)
-                    if isinstance(sub_cmd, dict):
-                        sub_cmd = next(iter(sub_cmd.values())).command
-                    else:
-                        sub_cmd = sub_cmd.command
-                    command.options.extend(sub_cmd.options)
-                except StopIteration:
-                    break
+            for sub_cmd in v:
+                if isinstance(sub_cmd, dict):
+                    sub_cmd = next(iter(sub_cmd.values())).command
+                else:
+                    sub_cmd = sub_cmd.command
+                command.options.extend(sub_cmd.options)
 
             if i_command.guild_id is not None:
                 cmds["guild"][i_command.guild_id].append(command)
