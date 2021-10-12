@@ -12,7 +12,7 @@ from dico import (
     ApplicationCommandInteractionDataOption,
     ApplicationCommandOptionType,
     Snowflake,
-    Client,
+    Client
 )
 
 from .command import InteractionCommand
@@ -42,15 +42,12 @@ class InteractionClient:
     :ivar logger: Logger of the client.
     :ivar respond_via_endpoint: Whether to automatically register commands.
     """
-
-    def __init__(
-        self,
-        *,
-        loop: asyncio.AbstractEventLoop = None,
-        respond_via_endpoint: bool = True,
-        client: typing.Optional[Client] = None,
-        auto_register_commands: bool = False,
-    ):
+    def __init__(self,
+                 *,
+                 loop: asyncio.AbstractEventLoop = None,
+                 respond_via_endpoint: bool = True,
+                 client: typing.Optional[Client] = None,
+                 auto_register_commands: bool = False):
         self.loop = loop or asyncio.get_event_loop()
 
         # Storing commands separately is to handle easily.
@@ -66,9 +63,7 @@ class InteractionClient:
             self.client.interaction = self
 
         if auto_register_commands and not self.client:
-            raise ValueError(
-                "You must pass dico.Client to use auto_overwrite_commands in InteractionClient."
-            )
+            raise ValueError("You must pass dico.Client to use auto_overwrite_commands in InteractionClient.")
         elif auto_register_commands:
             self.loop.create_task(self.register_commands())
 
@@ -132,15 +127,9 @@ class InteractionClient:
         :return: Optional[InteractionCommand]
         """
         subcommand_group = self.__extract_subcommand_group(interaction.data.options)
-        subcommand = self.__extract_subcommand(
-            subcommand_group.options if subcommand_group else interaction.data.options
-        )
+        subcommand = self.__extract_subcommand(subcommand_group.options if subcommand_group else interaction.data.options)
         if subcommand_group:
-            return (
-                self.subcommand_groups.get(interaction.data.name, {})
-                .get(subcommand_group.name, {})
-                .get(subcommand.name)
-            )
+            return self.subcommand_groups.get(interaction.data.name, {}).get(subcommand_group.name, {}).get(subcommand.name)
         elif subcommand:
             return self.subcommands.get(interaction.data.name, {}).get(subcommand.name)
         else:
@@ -160,11 +149,7 @@ class InteractionClient:
             if option.type.sub_command:
                 return option
 
-    async def handle_command(
-        self,
-        target: typing.Union[InteractionCommand, ComponentCallback],
-        interaction: InteractionContext,
-    ):
+    async def handle_command(self, target: typing.Union[InteractionCommand, ComponentCallback], interaction: InteractionContext):
         """
         Handles command or callback.
 
@@ -174,19 +159,15 @@ class InteractionClient:
         :type interaction: :class:`.context.InteractionContext`
         """
         subcommand_group = self.__extract_subcommand_group(interaction.data.options)
-        subcommand = self.__extract_subcommand(
-            subcommand_group.options if subcommand_group else interaction.data.options
-        )
+        subcommand = self.__extract_subcommand(subcommand_group.options if subcommand_group else interaction.data.options)
         options = {}
         opts = subcommand.options if subcommand else interaction.data.options
         for x in opts or []:
             value = x.value
-            resolved_types = [
-                ApplicationCommandOptionType.USER,
-                ApplicationCommandOptionType.CHANNEL,
-                ApplicationCommandOptionType.ROLE,
-                ApplicationCommandOptionType.MENTIONABLE,
-            ]
+            resolved_types = [ApplicationCommandOptionType.USER,
+                              ApplicationCommandOptionType.CHANNEL,
+                              ApplicationCommandOptionType.ROLE,
+                              ApplicationCommandOptionType.MENTIONABLE]
             if value and int(x.type) in resolved_types:
                 if interaction.data.resolved:
                     value = interaction.data.resolved.get(value)
@@ -200,30 +181,19 @@ class InteractionClient:
 
     async def execute_error_handler(self, target, interaction, ex):
         if target.self_or_cls:
-            if hasattr(
-                target.self_or_cls, "on_addon_interaction_error"
-            ) and await target.self_or_cls.on_addon_interaction_error(interaction, ex):
+            if hasattr(target.self_or_cls, "on_addon_interaction_error") and await target.self_or_cls.on_addon_interaction_error(interaction, ex):
                 return
-            if hasattr(
-                target.self_or_cls, "on_interaction_error"
-            ) and await target.self_or_cls.on_interaction_error(interaction, ex):
+            if hasattr(target.self_or_cls, "on_interaction_error") and await target.self_or_cls.on_interaction_error(interaction, ex):
                 return
-        if hasattr(interaction.client, "dispatch") and interaction.client.events.get(
-            "INTERACTION_ERROR"
-        ):
+        if hasattr(interaction.client, "dispatch") and interaction.client.events.get("INTERACTION_ERROR"):
             interaction.client.dispatch("interaction_error", interaction, ex)
         else:
-            tb = "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
-            title = (
-                f"Exception while executing command {interaction.data.name}"
-                if interaction.type.application_command
-                else f"Exception while executing callback of {interaction.data.custom_id}"
-            )
+            tb = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
+            title = f"Exception while executing command {interaction.data.name}" if interaction.type.application_command else \
+                f"Exception while executing callback of {interaction.data.custom_id}"
             print(f"{title}:\n{tb}", file=sys.stderr)
 
-    def wait_interaction(
-        self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None
-    ) -> InteractionContext:
+    def wait_interaction(self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None) -> InteractionContext:
         """
         Waits for interaction. Basically same as ``dico.Client.wait`` but with ``interaction`` event as default.
 
@@ -233,9 +203,7 @@ class InteractionClient:
         :raises asyncio.TimeoutError: Timed out.
         """
         if not self.client:
-            raise AttributeError(
-                "you cannot use wait_interaction if you didn't pass client to parameter."
-            )
+            raise AttributeError("you cannot use wait_interaction if you didn't pass client to parameter.")
         return self.client.wait("interaction", timeout=timeout, check=check)
 
     def export_commands(self):
@@ -360,11 +328,8 @@ class InteractionClient:
         subcommand = interaction.subcommand
         name = interaction.command.name
         if subcommand_group:
-            if (
-                name in self.subcommand_groups
-                and subcommand_group in self.subcommand_groups[name]
-                and subcommand in self.subcommand_groups[name][subcommand_group]
-            ):
+            if name in self.subcommand_groups and subcommand_group in self.subcommand_groups[name] and \
+                    subcommand in self.subcommand_groups[name][subcommand_group]:
                 del self.subcommand_groups[name][subcommand_group][subcommand]
             else:
                 raise
@@ -388,71 +353,58 @@ class InteractionClient:
         else:
             raise
 
-    def command(
-        self,
-        name: str = None,
-        *,
-        subcommand: str = None,
-        subcommand_group: str = None,
-        description: str = None,
-        subcommand_description: str = None,
-        subcommand_group_description: str = None,
-        command_type: typing.Union[
-            int, ApplicationCommandTypes
-        ] = ApplicationCommandTypes.CHAT_INPUT,
-        options: typing.List[ApplicationCommandOption] = None,
-        default_permission: bool = True,
-        guild_id: typing.Union[int, str, Snowflake] = None,
-    ):
+    def command(self,
+                name: str = None,
+                *,
+                subcommand: str = None,
+                subcommand_group: str = None,
+                description: str = None,
+                subcommand_description: str = None,
+                subcommand_group_description: str = None,
+                command_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.CHAT_INPUT,
+                options: typing.List[ApplicationCommandOption] = None,
+                default_permission: bool = True,
+                guild_id: typing.Union[int, str, Snowflake] = None):
         def wrap(coro):
-            cmd = command_deco(
-                name,
-                subcommand=subcommand,
-                subcommand_group=subcommand_group,
-                description=description,
-                subcommand_description=subcommand_description,
-                subcommand_group_description=subcommand_group_description,
-                command_type=command_type,
-                options=options,
-                default_permission=default_permission,
-                guild_id=guild_id,
-            )(coro)
+            cmd = command_deco(name,
+                               subcommand=subcommand,
+                               subcommand_group=subcommand_group,
+                               description=description,
+                               subcommand_description=subcommand_description,
+                               subcommand_group_description=subcommand_group_description,
+                               command_type=command_type,
+                               options=options,
+                               default_permission=default_permission,
+                               guild_id=guild_id)(coro)
             self.add_command(cmd)
             return cmd
-
         return wrap
 
-    def slash(
-        self,
-        name: str = None,
-        *,
-        subcommand: str = None,
-        subcommand_group: str = None,
-        description: str,
-        subcommand_description: str = None,
-        subcommand_group_description: str = None,
-        options: typing.List[ApplicationCommandOption] = None,
-        default_permission: bool = True,
-        guild_id: typing.Union[int, str, Snowflake] = None,
-    ):
-        return self.command(
-            name=name,
-            subcommand=subcommand,
-            subcommand_group=subcommand_group,
-            description=description,
-            subcommand_description=subcommand_description,
-            subcommand_group_description=subcommand_group_description,
-            options=options,
-            default_permission=default_permission,
-            guild_id=guild_id,
-        )
+    def slash(self,
+              name: str = None,
+              *,
+              subcommand: str = None,
+              subcommand_group: str = None,
+              description: str,
+              subcommand_description: str = None,
+              subcommand_group_description: str = None,
+              options: typing.List[ApplicationCommandOption] = None,
+              default_permission: bool = True,
+              guild_id: typing.Union[int, str, Snowflake] = None):
+        return self.command(name=name,
+                            subcommand=subcommand,
+                            subcommand_group=subcommand_group,
+                            description=description,
+                            subcommand_description=subcommand_description,
+                            subcommand_group_description=subcommand_group_description,
+                            options=options,
+                            default_permission=default_permission,
+                            guild_id=guild_id)
 
-    def context_menu(
-        self,
-        name: str = None,
-        menu_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.MESSAGE,
-        guild_id: typing.Union[int, str, Snowflake] = None,
-    ):
+    def context_menu(self,
+                     name: str = None,
+                     menu_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.MESSAGE,
+                     guild_id: typing.Union[int, str, Snowflake] = None):
         if int(menu_type) == ApplicationCommandTypes.CHAT_INPUT:
             raise TypeError("unsupported context menu type for context_menu decorator.")
         return self.command(name=name, description="", command_type=menu_type, guild_id=guild_id)
@@ -462,5 +414,4 @@ class InteractionClient:
             callback = ComponentCallback(custom_id, coro)
             self.add_callback(callback)
             return callback
-
         return wrap
