@@ -11,6 +11,7 @@ Submodules
    dico_interaction.command
    dico_interaction.component
    dico_interaction.context
+   dico_interaction.deco
    dico_interaction.exception
    dico_interaction.utils
    dico_interaction.webserver

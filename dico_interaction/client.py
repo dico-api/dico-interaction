@@ -63,7 +63,7 @@ class InteractionClient:
             self.client.interaction = self
 
         if auto_register_commands and not self.client:
-            raise ValueError("You must pass dico.Client to use auto_overwrite_commands in InteractionClient.")
+            raise ValueError("You must pass dico.Client to use auto_register_commands in InteractionClient.")
         elif auto_register_commands:
             self.loop.create_task(self.register_commands())
 
@@ -179,7 +179,15 @@ class InteractionClient:
         except Exception as ex:
             await self.execute_error_handler(target, interaction, ex)
 
-    async def execute_error_handler(self, target, interaction, ex):
+    async def execute_error_handler(self, target: typing.Union[InteractionCommand, ComponentCallback], interaction: InteractionContext, ex: Exception):
+        """
+        Executes error handler.
+        This is intended to be used internally.
+
+        :param target: Target interaction object.
+        :param interaction: Interaction context object.
+        :param ex: Exception raised.
+        """
         if target.self_or_cls:
             if hasattr(target.self_or_cls, "on_addon_interaction_error") and await target.self_or_cls.on_addon_interaction_error(interaction, ex):
                 return
@@ -193,7 +201,7 @@ class InteractionClient:
                 f"Exception while executing callback of {interaction.data.custom_id}"
             print(f"{title}:\n{tb}", file=sys.stderr)
 
-    def wait_interaction(self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None) -> InteractionContext:
+    def wait_interaction(self, *, timeout: float = None, check: typing.Callable[[InteractionContext], bool] = None):
         """
         Waits for interaction. Basically same as ``dico.Client.wait`` but with ``interaction`` event as default.
 
@@ -206,7 +214,23 @@ class InteractionClient:
             raise AttributeError("you cannot use wait_interaction if you didn't pass client to parameter.")
         return self.client.wait("interaction", timeout=timeout, check=check)
 
-    def export_commands(self):
+    def export_commands(self) -> dict:
+        """
+        Exports commands of the client as the form below.
+
+        .. code-block:: python
+
+            {
+                "global": [...],
+                "guild": {
+                    GUILD_ID_1: [...],
+                    GUILD_ID_2: [...],
+                    ...
+                }
+            }
+
+        :return: dict
+        """
         cmds = {"global": [], "guild": {}}
 
         for cmd in self.commands.values():
@@ -301,6 +325,11 @@ class InteractionClient:
         return cmds
 
     def add_command(self, interaction: InteractionCommand):
+        """
+        Adds new interaction command to the client.
+
+        :param interaction: Command to add.
+        """
         subcommand_group = interaction.subcommand_group
         subcommand = interaction.subcommand
         name = interaction.command.name
@@ -324,6 +353,11 @@ class InteractionClient:
             self.commands[name] = interaction
 
     def remove_command(self, interaction: InteractionCommand):
+        """
+        Removes command from client.
+
+        :param interaction: Command to remove.
+        """
         subcommand_group = interaction.subcommand_group
         subcommand = interaction.subcommand
         name = interaction.command.name
@@ -345,9 +379,19 @@ class InteractionClient:
                 raise
 
     def add_callback(self, callback: ComponentCallback):
+        """
+        Adds component callback to the client.
+
+        :param callback: Callback to add.
+        """
         self.components[callback.custom_id] = callback
 
     def remove_callback(self, callback: ComponentCallback):
+        """
+        Removes callback from client.
+
+        :param callback: Callback to remove.
+        """
         if callback.custom_id in self.components:
             del self.components[callback.custom_id]
         else:
@@ -365,6 +409,26 @@ class InteractionClient:
                 options: typing.List[ApplicationCommandOption] = None,
                 default_permission: bool = True,
                 guild_id: typing.Union[int, str, Snowflake] = None):
+        """
+        Creates and registers interaction command to the client.
+
+        .. note::
+            You should use :meth:`.slash` or :meth:`.context_menu`.
+
+        .. warning::
+            It is not recommended to create subcommand using options, since it won't be handled properly in the client.
+
+        :param name: Name of the command.
+        :param subcommand: Subcommand of the command.
+        :param subcommand_group: Subcommand group of the command.
+        :param description: Description of the command.
+        :param subcommand_description: Description of subcommand.
+        :param subcommand_group_description: Description of subcommand group.
+        :param command_type: Type of command.
+        :param options: Options of the command.
+        :param default_permission: Whether default permission is enabled.
+        :param guild_id: ID of the guild.
+        """
         def wrap(coro):
             cmd = command_deco(name,
                                subcommand=subcommand,
@@ -391,6 +455,29 @@ class InteractionClient:
               options: typing.List[ApplicationCommandOption] = None,
               default_permission: bool = True,
               guild_id: typing.Union[int, str, Snowflake] = None):
+        """
+        Creates and registers slash command to the client.
+
+        Example:
+        .. code-block:: python
+
+            @interaction.slash("example")
+            async def example_slash(ctx):
+                ...
+
+        .. warning::
+            It is not recommended to create subcommand using options, since it won't be handled properly in the client.
+
+        :param name: Name of the command.
+        :param subcommand: Subcommand of the command.
+        :param subcommand_group: Subcommand group of the command.
+        :param description: Description of the command.
+        :param subcommand_description: Description of subcommand.
+        :param subcommand_group_description: Description of subcommand group.
+        :param options: Options of the command.
+        :param default_permission: Whether default permission is enabled.
+        :param guild_id: ID of the guild.
+        """
         return self.command(name=name,
                             subcommand=subcommand,
                             subcommand_group=subcommand_group,
@@ -405,6 +492,13 @@ class InteractionClient:
                      name: str = None,
                      menu_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.MESSAGE,
                      guild_id: typing.Union[int, str, Snowflake] = None):
+        """
+        Creates and registers context menu to the client.
+
+        :param name: Name of the command.
+        :param menu_type: Type of the context menu.
+        :param guild_id: ID of the guild.
+        """
         if int(menu_type) == ApplicationCommandTypes.CHAT_INPUT:
             raise TypeError("unsupported context menu type for context_menu decorator.")
         return self.command(name=name, description="", command_type=menu_type, guild_id=guild_id)
