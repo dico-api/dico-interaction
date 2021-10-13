@@ -3,6 +3,7 @@ import typing
 import asyncio
 import logging
 import traceback
+import copy
 
 from dico import (
     ApplicationCommand,
@@ -60,9 +61,6 @@ class InteractionClient:
         self.client = client
         if self.client is not None:
             self.client.interaction = self
-
-        if auto_register_commands:
-            raise NotImplementedError("I gave up, sorry.")
 
         if auto_register_commands and not self.client:
             raise ValueError("You must pass dico.Client to use auto_overwrite_commands in InteractionClient.")
@@ -209,18 +207,98 @@ class InteractionClient:
         return self.client.wait("interaction", timeout=timeout, check=check)
 
     def export_commands(self):
-        raise NotImplementedError("I gave up.")
+        cmds = {"global": [], "guild": {}}
 
-        global_body = []  # noqa
-        pre_global_body = {}
-        guild_body = {}
-        pre_guild_body = {}
+        for cmd in self.commands.values():
+            if cmd.guild_id is not None:
+                if cmds.get(cmd.guild_id) is None:
+                    cmds["guild"][cmd.guild_id] = []
+                cmds["guild"][cmd.guild_id].append(cmd.command)
+            else:
+                cmds["global"].append(cmd.command)
 
-        # extracted_
+        subcommands = {"global": {}, "guild": {}}
 
-        for k, v in pre_guild_body.items():
-            guild_body[k] = [*v.values()]
-        return {"global": [*pre_global_body.values()], "guild": guild_body}
+        for p_cmd in self.subcommands.values():
+            for c_cmd in p_cmd.values():
+                if c_cmd.guild_id is not None:
+                    subcommands["guild"][c_cmd.guild_id] = {}
+
+        for p_cmd in self.subcommand_groups.values():
+            for c_cmd in p_cmd.values():
+                for s_cmd in c_cmd.values():
+                    if s_cmd.guild_id is not None:
+                        subcommands["guild"][s_cmd.guild_id] = {}
+
+        for p_k, p_v in self.subcommands.items():
+            for c_k, c_v in p_v.items():
+                if c_v.guild_id is not None:
+                    data = subcommands["guild"][c_v.guild_id]
+                else:
+                    data = subcommands["global"]
+
+                if data.get(p_k) is None:
+                    data[p_k] = {}
+                data[p_k][c_k] = c_v.command
+
+                if c_v.guild_id is not None:
+                    subcommands["guild"][c_v.guild_id] = data
+                else:
+                    subcommands["global"] = data
+
+        for p_k, p_v in self.subcommand_groups.items():
+            for c_k, c_v in p_v.items():
+                for s_k, s_v in c_v.items():
+                    if s_v.guild_id is not None:
+                        data = subcommands["guild"][s_v.guild_id]
+                    else:
+                        data = subcommands["global"]
+
+                    if data.get(p_k) is None:
+                        data[p_k] = {}
+                    if data[p_k].get(c_k) is None:
+                        data[p_k][c_k] = {}
+                    data[p_k][c_k][s_k] = s_v.command
+
+                    if s_v.guild_id is not None:
+                        subcommands["guild"][s_v.guild_id] = data
+                    else:
+                        subcommands["global"] = data
+
+        def get_command(data):
+            data = data.values()
+            base_cmd = None
+
+            for p_cmd in data:
+                if isinstance(p_cmd, dict):
+                    base_c_cmd = None
+                    for c_cmd in p_cmd.values():
+                        if base_c_cmd is None:
+                            base_c_cmd = c_cmd
+                        else:
+                            base_c_cmd.options[0].options.append(c_cmd.options[0].options[0])
+
+                    if base_cmd is None:
+                        base_cmd = base_c_cmd
+                    else:
+                        base_cmd.options.append(base_c_cmd.options[0])
+                else:
+                    if base_cmd is None:
+                        base_cmd = p_cmd
+                    else:
+                        base_cmd.options.append(p_cmd.options[0])
+            return base_cmd
+
+        for cmd in subcommands["global"].values():
+            cmds["global"].append(get_command(cmd))
+
+        for guild_id, guild_cmds in subcommands["guild"].items():
+            if cmds["guild"].get(guild_id) is None:
+                cmds["guild"][guild_id] = []
+            for cmd in guild_cmds.values():
+                cmds["guild"][guild_id].append(get_command(cmd))
+
+        return cmds
 
     def add_command(self, interaction: InteractionCommand):
         subcommand_group = interaction.subcommand_group
