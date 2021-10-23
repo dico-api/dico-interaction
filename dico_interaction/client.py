@@ -243,7 +243,7 @@ class InteractionClient:
 
         for cmd in self.commands.values():
             if cmd.guild_id is not None:
-                if cmds.get(cmd.guild_id) is None:
+                if cmds["guild"].get(cmd.guild_id) is None:
                     cmds["guild"][cmd.guild_id] = []
                 cmds["guild"][cmd.guild_id].append(cmd.command)
             else:
