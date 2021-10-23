@@ -33,6 +33,7 @@ class InteractionClient:
     :param respond_via_endpoint: Whether to respond via endpoint, which is for gateway response. Otherwise, set to ``False``. Default ``True``.
     :param client: Optional dico client. Passing this enables automatic command register, wait_interaction, and auto event registration.
     :param auto_register_commands: Whether to automatically register commands. Default ``False``.
+    :param guild_id_lock: Guild ID to force-apply to all commands. This is useful for testing commands.
 
     :ivar loop: asyncio Loop of the client.
     :ivar commands: Dict of commands registered to the client.
@@ -41,13 +42,15 @@ class InteractionClient:
     :ivar components: Dict of component callbacks registered to the client.
     :ivar logger: Logger of the client.
     :ivar respond_via_endpoint: Whether to automatically register commands.
+    :ivar guild_id_lock: Guild ID that will be force-applied to all commands.
     """
     def __init__(self,
                  *,
                  loop: asyncio.AbstractEventLoop = None,
                  respond_via_endpoint: bool = True,
                  client: typing.Optional[Client] = None,
-                 auto_register_commands: bool = False):
+                 auto_register_commands: bool = False,
+                 guild_id_lock: typing.Optional[Snowflake.TYPING] = None):
         self.loop = loop or asyncio.get_event_loop()
 
         # Storing commands separately is to handle easily.
@@ -56,8 +59,9 @@ class InteractionClient:
         self.subcommand_groups = {}
 
         self.components = {}
-        self.logger = logging.Logger("dico.interaction")
+        self.logger = logging.getLogger("dico.interaction")
         self.respond_via_endpoint = respond_via_endpoint
+        self.guild_id_lock = guild_id_lock
         self.client = client
         if self.client is not None:
             self.client.interaction = self
@@ -75,12 +79,16 @@ class InteractionClient:
         Automatically registers command to discord.
         """
         await self.client.wait_ready()
+        self.logger.info("Registering commands...")
         commands = self.export_commands()
         if commands["global"]:
             await self.client.bulk_overwrite_application_commands(*commands["global"])
+            self.logger.info(f"Successfully registered global commands.")
         if commands["guild"]:
             for k, v in commands["guild"].items():
+                print(v)
                 await self.client.bulk_overwrite_application_commands(*v, guild=k)
+                self.logger.info(f"Successfully registered guild commands at {k}.")
 
     async def receive(self, interaction: InteractionContext) -> typing.Optional[dict]:
         """
@@ -330,6 +338,8 @@ class InteractionClient:
 
         :param interaction: Command to add.
         """
+        if self.guild_id_lock:
+            interaction.guild_id = self.guild_id_lock
         subcommand_group = interaction.subcommand_group
         subcommand = interaction.subcommand
         name = interaction.command.name
