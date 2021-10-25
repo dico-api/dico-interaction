@@ -15,7 +15,8 @@ def command(name: str = None,
             command_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.CHAT_INPUT,
             options: typing.List[ApplicationCommandOption] = None,
             default_permission: bool = True,
-            guild_id: typing.Union[int, str, Snowflake] = None):
+            guild_id: typing.Union[int, str, Snowflake] = None,
+            connector: typing.Dict[str, str] = None):
     if int(command_type) == ApplicationCommandTypes.CHAT_INPUT and not description:
         raise ValueError("description must be passed if type is CHAT_INPUT.")
     description = description or ""
@@ -44,7 +45,7 @@ def command(name: str = None,
 
     def wrap(coro):
         _command = ApplicationCommand(name or coro.__name__, description, command_type, options, default_permission)
-        cmd = InteractionCommand(coro, _command, guild_id, subcommand, subcommand_group)
+        cmd = InteractionCommand(coro, _command, guild_id, subcommand, subcommand_group, connector=connector)
         return cmd
 
     return wrap
@@ -59,7 +60,8 @@ def slash(name: str = None,
           subcommand_group_description: str = None,
           options: typing.List[ApplicationCommandOption] = None,
           default_permission: bool = True,
-          guild_id: typing.Union[int, str, Snowflake] = None):
+          guild_id: typing.Union[int, str, Snowflake] = None,
+          connector: typing.Dict[str, str] = None):
     return command(name=name,
                    subcommand=subcommand,
                    subcommand_group=subcommand_group,
@@ -68,7 +70,8 @@ def slash(name: str = None,
                    subcommand_group_description=subcommand_group_description,
                    options=options,
                    default_permission=default_permission,
-                   guild_id=guild_id)
+                   guild_id=guild_id,
+                   connector=connector)
 
 
 def context_menu(name: str = None,

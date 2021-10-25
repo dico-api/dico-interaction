@@ -13,13 +13,15 @@ class InteractionCommand:
                  guild_id: Snowflake = None,
                  subcommand: str = None,
                  subcommand_group: str = None,
-                 checks: typing.Optional[typing.List[typing.Callable[[InteractionContext], typing.Union[bool, typing.Awaitable[bool]]]]] = None):
+                 checks: typing.Optional[typing.List[typing.Callable[[InteractionContext], typing.Union[bool, typing.Awaitable[bool]]]]] = None,
+                 connector: dict = None):
         self.coro = coro
         self.command = command
         self.guild_id = guild_id
         self.subcommand = subcommand
         self.subcommand_group = subcommand_group
         self.checks = checks or []
+        self.connector = connector or {}
 
         if hasattr(self.coro, "_extra_options"):
             self.add_options(*self.coro._extra_options)
@@ -55,6 +57,7 @@ class InteractionCommand:
         if not await self.evaluate_checks(interaction):
             raise CheckFailed
         param_data = read_function(self.coro)
+        options = {self.connector.get(k, k): v for k, v in options.items()}
         required_options = {k: v for k, v in param_data.items() if v["required"]}
         missing_options = [x for x in required_options if x not in options]
         missing_params = [x for x in options if x not in param_data]

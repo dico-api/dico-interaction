@@ -418,7 +418,8 @@ class InteractionClient:
                 command_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.CHAT_INPUT,
                 options: typing.List[ApplicationCommandOption] = None,
                 default_permission: bool = True,
-                guild_id: typing.Union[int, str, Snowflake] = None):
+                guild_id: typing.Union[int, str, Snowflake] = None,
+                connector: typing.Dict[str, str] = None):
         """
         Creates and registers interaction command to the client.
 
@@ -438,6 +439,7 @@ class InteractionClient:
         :param options: Options of the command.
         :param default_permission: Whether default permission is enabled.
         :param guild_id: ID of the guild.
+        :param connector: Option parameter connector.
         """
         def wrap(coro):
             cmd = command_deco(name,
@@ -449,7 +451,8 @@ class InteractionClient:
                                command_type=command_type,
                                options=options,
                                default_permission=default_permission,
-                               guild_id=guild_id)(coro)
+                               guild_id=guild_id,
+                               connector=connector)(coro)
             self.add_command(cmd)
             return cmd
         return wrap
@@ -464,7 +467,8 @@ class InteractionClient:
               subcommand_group_description: str = None,
               options: typing.List[ApplicationCommandOption] = None,
               default_permission: bool = True,
-              guild_id: typing.Union[int, str, Snowflake] = None):
+              guild_id: typing.Union[int, str, Snowflake] = None,
+              connector: typing.Dict[str, str] = None):
         """
         Creates and registers slash command to the client.
 
@@ -474,6 +478,14 @@ class InteractionClient:
             @interaction.slash("example")
             async def example_slash(ctx):
                 ...
+
+        Connector Example:
+        .. code-block:: python
+
+            {
+                "옵션": "option",
+                "시간": "hour"
+            }
 
         .. warning::
             It is not recommended to create subcommand using options, since it won't be handled properly in the client.
@@ -487,6 +499,7 @@ class InteractionClient:
         :param options: Options of the command.
         :param default_permission: Whether default permission is enabled.
         :param guild_id: ID of the guild.
+        :param connector: Option parameter connector.
         """
         return self.command(name=name,
                             subcommand=subcommand,
@@ -496,7 +509,8 @@ class InteractionClient:
                             subcommand_group_description=subcommand_group_description,
                             options=options,
                             default_permission=default_permission,
-                            guild_id=guild_id)
+                            guild_id=guild_id,
+                            connector=connector)
 
     def context_menu(self,
                      name: str = None,
