@@ -15,8 +15,9 @@ from dico import (
     Client
 )
 
-from .command import InteractionCommand
+from .command import InteractionCommand, AutoComplete
 from .deco import command as command_deco
+from .deco import autocomplete as autocomplete_deco
 from .component import ComponentCallback
 from .context import InteractionContext
 
@@ -50,7 +51,8 @@ class InteractionClient:
                  respond_via_endpoint: bool = True,
                  client: typing.Optional[Client] = None,
                  auto_register_commands: bool = False,
-                 guild_id_lock: typing.Optional[Snowflake.TYPING] = None):
+                 guild_id_lock: typing.Optional[Snowflake.TYPING] = None,
+                 context_cls: typing.Type[InteractionContext] = InteractionContext):
         self.loop = loop or asyncio.get_event_loop()
 
         # Storing commands separately is to handle easily.
@@ -59,9 +61,12 @@ class InteractionClient:
         self.subcommand_groups = {}
 
         self.components = {}
+        self.autocompletes = {}
+
         self.logger = logging.getLogger("dico.interaction")
         self.respond_via_endpoint = respond_via_endpoint
         self.guild_id_lock = guild_id_lock
+        self.context_cls = context_cls
         self.client = client
         if self.client is not None:
             self.client.interaction = self
@@ -101,8 +106,8 @@ class InteractionClient:
         :type interaction: :class:`.context.InteractionContext`
         :return: Optional[dict]
         """
-        if not isinstance(interaction, InteractionContext):
-            interaction = InteractionContext.from_interaction(interaction, self.logger)
+        if not isinstance(interaction, self.context_cls):
+            interaction = self.context_cls.from_interaction(interaction, self.logger)
         if self.client:
             self.client.dispatch("interaction", interaction)
         if interaction.type.application_command:
@@ -113,6 +118,8 @@ class InteractionClient:
                 maybe = [x for x in self.components if interaction.data.custom_id.startswith(x)]
                 if maybe:
                     target = self.components.get(maybe[0])
+        elif interaction.type.application_command_autocomplete:
+            target = self.autocompletes.get(f"{interaction.data.name}:{interaction.data.options[0].name}")
         else:
             return
 
@@ -394,6 +401,8 @@ class InteractionClient:
 
         :param callback: Callback to add.
         """
+        if callback.custom_id in self.components:
+            raise
         self.components[callback.custom_id] = callback
 
     def remove_callback(self, callback: ComponentCallback):
@@ -406,6 +415,12 @@ class InteractionClient:
             del self.components[callback.custom_id]
         else:
             raise
+
+    def add_autocomplete(self, autocomplete: AutoComplete):
+        text = f"{autocomplete.command_name}:{autocomplete.name}"
+        if text in self.autocompletes:
+            raise
+        self.autocompletes[text] = autocomplete
 
     def command(self,
                 name: str = None,
@@ -528,8 +543,26 @@ class InteractionClient:
         return self.command(name=name, description="", command_type=menu_type, guild_id=guild_id)
 
     def component_callback(self, custom_id: str = None):
+        """
+        Adds component callback to the client.
+
+        :param custom_id: Custom ID of the component. Can be prefix of the custom ID.
+        """
         def wrap(coro):
             callback = ComponentCallback(custom_id, coro)
             self.add_callback(callback)
             return callback
+        return wrap
+
+    def autocomplete(self, command_name: str, name: str):
+        """
+        Adds autocomplete to the client. Function must return list of choices. Function can be both coroutine or normal function.
+
+        :param command_name: Name of the command that has autocomplete option.
+        :param name: Name of the option with autocomplete enabled.
+        """
+        def wrap(coro):
+            autocomplete = autocomplete_deco(command_name, name)(coro)
+            self.add_autocomplete(autocomplete)
+            return autocomplete
         return wrap

@@ -24,7 +24,7 @@ class InteractionCommand:
         self.connector = connector or {}
 
         if hasattr(self.coro, "_extra_options"):
-            self.add_options(*self.coro._extra_options)
+            self.add_options(*reversed(self.coro._extra_options))
         if hasattr(self.coro, "_checks"):
             self.checks.extend(self.coro._checks)
 
@@ -71,6 +71,13 @@ class InteractionCommand:
             self.command.options = []
             self.__options_from_args = False
         self.command.options.extend(options)
+
+
+class AutoComplete:
+    def __init__(self, coro, command_name: str, name: str):
+        self.coro = coro
+        self.command_name = command_name
+        self.name = name
 
 
 def option(option_type: typing.Union[ApplicationCommandOptionType, int],

@@ -1,6 +1,6 @@
 import typing
 from dico import ApplicationCommandTypes, ApplicationCommandOption, ApplicationCommandOptionType, Snowflake, ApplicationCommand
-from .command import InteractionCommand
+from .command import InteractionCommand, AutoComplete
 from .context import InteractionContext
 from .component import ComponentCallback
 
@@ -98,4 +98,10 @@ def checks(*funcs: typing.Callable[[InteractionContext], typing.Union[bool, typi
 def component_callback(custom_id: str = None):
     def wrap(coro):
         return ComponentCallback(custom_id, coro)
+    return wrap
+
+
+def autocomplete(command_name: str, name: str):
+    def wrap(coro):
+        return AutoComplete(coro, command_name, name)
     return wrap
