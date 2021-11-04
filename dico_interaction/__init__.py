@@ -7,10 +7,10 @@ Interaction module for dico.
 """
 
 from .client import InteractionClient
-from .command import InteractionCommand, option, AutoComplete
+from .command import InteractionCommand, AutoComplete, autocomplete
 from .component import ComponentCallback
 from .context import InteractionContext
-from .deco import command, slash, context_menu, component_callback, checks, autocomplete
+from .deco import command, slash, context_menu, component_callback, checks, option
 from .webserver import InteractionWebserver
 
 __version__ = "0.0.5"

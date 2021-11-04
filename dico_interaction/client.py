@@ -16,8 +16,8 @@ from dico import (
 )
 
 from .command import InteractionCommand, AutoComplete
+from .command import autocomplete as autocomplete_deco
 from .deco import command as command_deco
-from .deco import autocomplete as autocomplete_deco
 from .component import ComponentCallback
 from .context import InteractionContext
 
@@ -91,7 +91,6 @@ class InteractionClient:
             self.logger.info(f"Successfully registered global commands.")
         if commands["guild"]:
             for k, v in commands["guild"].items():
-                print(v)
                 await self.client.bulk_overwrite_application_commands(*v, guild=k)
                 self.logger.info(f"Successfully registered guild commands at {k}.")
 
@@ -119,14 +118,14 @@ class InteractionClient:
                 if maybe:
                     target = self.components.get(maybe[0])
         elif interaction.type.application_command_autocomplete:
-            target = self.autocompletes.get(f"{interaction.data.name}:{interaction.data.options[0].name}")
+            target = self.get_autocomplete(interaction)
         else:
             return
 
         if not target:
             return
 
-        self.loop.create_task(self.handle_command(target, interaction))
+        self.loop.create_task(self.handle_interaction(target, interaction))
         # await self.handle_command(target, interaction)
 
         if not self.respond_via_endpoint:
@@ -137,8 +136,7 @@ class InteractionClient:
         """
         Gets command based on interaction received.
 
-        :param interaction: Interaction received.
-        :type interaction: :class:`.context.InteractionContext`
+        :param InteractionContext interaction: Interaction received.
         :return: Optional[InteractionCommand]
         """
         subcommand_group = self.__extract_subcommand_group(interaction.data.options)
@@ -164,14 +162,31 @@ class InteractionClient:
             if option.type.sub_command:
                 return option
 
-    async def handle_command(self, target: typing.Union[InteractionCommand, ComponentCallback], interaction: InteractionContext):
+    def get_autocomplete(self, interaction: InteractionContext) -> typing.Optional[AutoComplete]:
         """
-        Handles command or callback.
+        Gets autocomplete based on interaction received.
+
+        :param InteractionContext interaction: Interaction received.
+        :return: Optional[AutoComplete]
+        """
+        subcommand_group = self.__extract_subcommand_group(interaction.data.options)
+        subcommand = self.__extract_subcommand(subcommand_group.options if subcommand_group else interaction.data.options)
+        option = [x for x in (subcommand_group.options if subcommand_group else subcommand.options if subcommand else interaction.data.options) if x.focused][0]
+        if subcommand_group:
+            key = f"{interaction.data.name}:{subcommand_group.name}:{subcommand.name}:{option.name}"
+        elif subcommand:
+            key = f"{interaction.data.name}:{subcommand.name}:{option.name}"
+        else:
+            key = f"{interaction.data.name}:{option.name}"
+        return self.autocompletes.get(key)
+
+    async def handle_interaction(self, target: typing.Union[InteractionCommand, ComponentCallback, AutoComplete], interaction: InteractionContext):
+        """
+        Handles received interaction.
 
         :param target: What to execute.
-        :type target: Union[:class:`.command.InteractionCommand`, :class:`.component.ComponentCallback`]
-        :param interaction: Context to use.
-        :type interaction: :class:`.context.InteractionContext`
+        :type target: Union[InteractionCommand, ComponentCallback, AutoComplete]
+        :param InteractionContext interaction: Context to use.
         """
         subcommand_group = self.__extract_subcommand_group(interaction.data.options)
         subcommand = self.__extract_subcommand(subcommand_group.options if subcommand_group else interaction.data.options)
@@ -417,10 +432,36 @@ class InteractionClient:
             raise
 
     def add_autocomplete(self, autocomplete: AutoComplete):
-        text = f"{autocomplete.command_name}:{autocomplete.name}"
-        if text in self.autocompletes:
+        """
+        Adds autocomplete to the client.
+
+        :param autocomplete: Autocomplete to add.
+        """
+        if autocomplete.subcommand_group:
+            key = f"{autocomplete.name}:{autocomplete.subcommand_group}:{autocomplete.subcommand}:{autocomplete.option}"
+        elif autocomplete.subcommand:
+            key = f"{autocomplete.name}:{autocomplete.subcommand}:{autocomplete.option}"
+        else:
+            key = f"{autocomplete.name}:{autocomplete.name}"
+        if key in self.autocompletes:
             raise
-        self.autocompletes[text] = autocomplete
+        self.autocompletes[key] = autocomplete
+
+    def remove_autocomplete(self, autocomplete: AutoComplete):
+        """
+        Removes autocomplete from the client.
+
+        :param autocomplete: Autocomplete to remove.
+        """
+        if autocomplete.subcommand_group:
+            key = f"{autocomplete.name}:{autocomplete.subcommand_group}:{autocomplete.subcommand}:{autocomplete.option}"
+        elif autocomplete.subcommand:
+            key = f"{autocomplete.name}:{autocomplete.subcommand}:{autocomplete.option}"
+        else:
+            key = f"{autocomplete.name}:{autocomplete.name}"
+        if key not in self.autocompletes:
+            raise
+        del self.autocompletes[key]
 
     def command(self,
                 name: str = None,
@@ -554,15 +595,27 @@ class InteractionClient:
             return callback
         return wrap
 
-    def autocomplete(self, command_name: str, name: str):
+    def autocomplete(self, *names: str, name: str = None, subcommand_group: str = None, subcommand: str = None, option: str = None):
         """
-        Adds autocomplete to the client. Function must return list of choices. Function can be both coroutine or normal function.
+        Adds autocomplete to the client. Supports two style:
 
-        :param command_name: Name of the command that has autocomplete option.
-        :param name: Name of the option with autocomplete enabled.
+        .. code-block: python
+
+            @interaction.autocomplete("example", "option")
+            async def ...(ctx: InteractionContext):
+                await ctx.send(choices=[...])
+
+            @interaction.autocomplete(name="example", option="option")
+            async def ...(ctx: InteractionContext):
+                await ctx.send(choices=[...])
+
+        :param name: Name of the command that has autocomplete option.
+        :param subcommand_group: Subcommand group of the command.
+        :param subcommand: Subcommand of the command.
+        :param option: Name of the option with autocomplete enabled.
         """
         def wrap(coro):
-            autocomplete = autocomplete_deco(command_name, name)(coro)
+            autocomplete = autocomplete_deco(*names, name=name, subcommand_group=subcommand_group, subcommand=subcommand, option=option)(coro)
             self.add_autocomplete(autocomplete)
             return autocomplete
         return wrap

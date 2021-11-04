@@ -1,5 +1,5 @@
 import typing
-from dico import ApplicationCommand, Snowflake, ApplicationCommandOption, ApplicationCommandOptionType, ApplicationCommandOptionChoice
+from dico import ApplicationCommand, Snowflake, ApplicationCommandOption
 
 from .context import InteractionContext
 from .exception import InvalidOptionParameter, CheckFailed
@@ -28,7 +28,7 @@ class InteractionCommand:
         if hasattr(self.coro, "_checks"):
             self.checks.extend(self.coro._checks)
 
-        opts = self.command.options
+        opts = self.__command_option
         param_data = read_function(self.coro)
         self.__options_from_args = param_data and not opts
         if self.__options_from_args:
@@ -41,7 +41,7 @@ class InteractionCommand:
                     opts.append(opt)
                 except NotImplementedError:
                     raise TypeError("unsupported type detected, in this case please manually pass options param to command decorator.") from None
-        self.command.options = opts
+        self.__command_option = opts
         self.self_or_cls = None
 
     def register_self_or_cls(self, addon):
@@ -68,38 +68,55 @@ class InteractionCommand:
 
     def add_options(self, *options: ApplicationCommandOption):
         if hasattr(self, "__options_from_args") and self.__options_from_args:
-            self.command.options = []
+            self.__command_option = []
             self.__options_from_args = False
-        self.command.options.extend(options)
+        self.__command_option.extend(options)
+
+    @property
+    def __command_option(self):
+        if self.subcommand_group:
+            return self.command.options[0].options[0].options
+        elif self.subcommand:
+            return self.command.options[0].options
+        else:
+            return self.command.options
+
+    @__command_option.setter
+    def __command_option(self, value):
+        if self.subcommand_group:
+            self.command.options[0].options[0].options = value
+        elif self.subcommand:
+            self.command.options[0].options = value
+        else:
+            self.command.options = value
 
 
 class AutoComplete:
-    def __init__(self, coro, command_name: str, name: str):
+    def __init__(self, coro, name: str, subcommand_group: str, subcommand: str, option: str):
         self.coro = coro
-        self.command_name = command_name
         self.name = name
+        self.subcommand_group = subcommand_group
+        self.subcommand = subcommand
+        self.option = option
+
+    def invoke(self, interaction, options: dict):
+        return self.coro(interaction)
 
 
-def option(option_type: typing.Union[ApplicationCommandOptionType, int],
-           *,
-           name: str,
-           description: str,
-           required: bool = False,
-           choices: typing.List[ApplicationCommandOptionChoice] = None,
-           options: typing.List[ApplicationCommandOption] = None):
-    if int(option_type) == ApplicationCommandOptionType.SUB_COMMAND_GROUP and choices:
-        raise TypeError("choices is not allowed if option type is SUB_COMMAND_GROUP.")
-    if int(option_type) == ApplicationCommandOptionType.SUB_COMMAND_GROUP and not options:
-        raise TypeError("you must pass options if option type is SUB_COMMAND_GROUP.")
-    option_to_add = ApplicationCommandOption(option_type=option_type, name=name, description=description, required=required, choices=choices, options=options)
+def autocomplete(*names: str, name: str = None, subcommand_group: str = None, subcommand: str = None, option: str = None):
+    if names:
+        if not name:
+            name = names[0]
+        if not option:
+            option = names[-1]
+        if len(names) == 3 and not subcommand:
+            subcommand = names[1]
+        elif len(names) == 4:
+            if not subcommand_group:
+                subcommand_group = names[1]
+            if not subcommand:
+                subcommand = names[2]
 
-    def wrap(maybe_cmd):
-        if isinstance(maybe_cmd, InteractionCommand):
-            maybe_cmd.add_options(option_to_add)
-        else:
-            if not hasattr(maybe_cmd, "_extra_options"):
-                maybe_cmd._extra_options = []
-            maybe_cmd._extra_options.append(option_to_add)
-        return maybe_cmd
-
+    def wrap(coro):
+        return AutoComplete(coro, name, subcommand_group, subcommand, option)
     return wrap

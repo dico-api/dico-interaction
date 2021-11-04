@@ -3,7 +3,7 @@ import typing
 import asyncio
 import pathlib
 
-from dico import Interaction, InteractionResponse, InteractionCallbackType, InteractionApplicationCommandCallbackData, Embed, AllowedMentions, Component
+from dico import Interaction, InteractionResponse, InteractionCallbackType, InteractionApplicationCommandCallbackData, Embed, AllowedMentions, Component, ApplicationCommandOptionChoice
 
 
 class InteractionContext(Interaction):
@@ -38,7 +38,8 @@ class InteractionContext(Interaction):
              embed: typing.Union[Embed, dict] = None,
              embeds: typing.List[typing.Union[Embed, dict]] = None,
              allowed_mentions: typing.Union[AllowedMentions, dict] = None,
-             components: typing.List[typing.Union[dict, Component]]= None,
+             components: typing.List[typing.Union[dict, Component]] = None,
+             choices: typing.Optional[typing.List[typing.Union[dict, ApplicationCommandOptionChoice]]] = None,
              ephemeral: bool = False,
              update_message: bool = False):
         if self.type.application_command:
@@ -51,13 +52,15 @@ class InteractionContext(Interaction):
                 embeds = [embed]
             if file or files:
                 self.logger.warning("file and files are not supported on initial response. Ignoring file or files param.")
-            callback_type = InteractionCallbackType.UPDATE_MESSAGE if update_message else InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE
+            callback_type = InteractionCallbackType.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT if self.type.application_command_autocomplete else \
+                InteractionCallbackType.UPDATE_MESSAGE if update_message else InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE
             data = InteractionApplicationCommandCallbackData(tts=tts,
                                                              content=content,
                                                              embeds=embeds,
                                                              allowed_mentions=allowed_mentions,
                                                              flags=64 if ephemeral else None,
-                                                             components=components)
+                                                             components=components,
+                                                             choices=choices)
             resp = InteractionResponse(callback_type, data)
             self.deferred = True
             return self.create_response(resp)
