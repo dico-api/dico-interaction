@@ -43,6 +43,7 @@ class InteractionCommand:
                     raise TypeError("unsupported type detected, in this case please manually pass options param to command decorator.") from None
         self.__command_option = opts
         self.self_or_cls = None
+        self.autocompletes = []
 
     def register_self_or_cls(self, addon):
         self.self_or_cls = addon
@@ -71,6 +72,14 @@ class InteractionCommand:
             self.__command_option = []
             self.__options_from_args = False
         self.__command_option.extend(options)
+
+    def autocomplete(self, option: str):
+        raise NotImplementedError
+        def wrap(coro):
+            resp = autocomplete(name=self.command.name, subcommand=self.subcommand, subcommand_group=self.subcommand_group, option=option)(coro)
+            self.autocompletes.append(resp)
+            return resp
+        return wrap
 
     @property
     def __command_option(self):
