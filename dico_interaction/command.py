@@ -107,9 +107,14 @@ class AutoComplete:
         self.subcommand_group = subcommand_group
         self.subcommand = subcommand
         self.option = option
+        self.self_or_cls = None
+
+    def register_self_or_cls(self, addon):
+        self.self_or_cls = addon
 
     def invoke(self, interaction, options: dict):
-        return self.coro(interaction)
+        args = (interaction,) if self.self_or_cls is None else (self.self_or_cls, interaction)
+        return self.coro(*args)
 
 
 def autocomplete(*names: str, name: str = None, subcommand_group: str = None, subcommand: str = None, option: str = None):
