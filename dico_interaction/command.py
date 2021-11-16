@@ -1,4 +1,6 @@
 import typing
+import warnings
+
 from dico import ApplicationCommand, Snowflake, ApplicationCommandOption
 
 from .context import InteractionContext
@@ -11,13 +13,18 @@ class InteractionCommand:
                  coro,
                  command: ApplicationCommand,
                  guild_id: Snowflake = None,
+                 guild_ids: typing.List[Snowflake] = None,
                  subcommand: str = None,
                  subcommand_group: str = None,
                  checks: typing.Optional[typing.List[typing.Callable[[InteractionContext], typing.Union[bool, typing.Awaitable[bool]]]]] = None,
                  connector: dict = None):
         self.coro = coro
         self.command = command
-        self.guild_id = guild_id
+        if guild_id and guild_ids:
+            raise ValueError("You can't set both guild_id and guild_ids")
+        elif guild_id:
+            self.guild_ids = [guild_id]
+        self.guild_ids = guild_ids
         self.subcommand = subcommand
         self.subcommand_group = subcommand_group
         self.checks = checks or []
@@ -44,6 +51,11 @@ class InteractionCommand:
         self.__command_option = opts
         self.self_or_cls = None
         self.autocompletes = []
+
+    @property
+    def guild_id(self):
+        warnings.warn("guild_id is deprecated, use guild_ids instead", DeprecationWarning, stacklevel=2)
+        return self.guild_ids[0] if self.guild_ids else None
 
     def register_self_or_cls(self, addon):
         self.self_or_cls = addon

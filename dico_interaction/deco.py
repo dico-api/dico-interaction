@@ -1,4 +1,6 @@
 import typing
+import warnings
+
 from dico import (
     ApplicationCommandTypes, ApplicationCommandOption, ApplicationCommandOptionType, Snowflake, ApplicationCommand, ApplicationCommandOptionChoice, ChannelTypes
 )
@@ -17,10 +19,16 @@ def command(name: str = None,
             command_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.CHAT_INPUT,
             options: typing.List[ApplicationCommandOption] = None,
             default_permission: bool = True,
-            guild_id: typing.Union[int, str, Snowflake] = None,
+            guild_id: Snowflake.TYPING = None,
+            guild_ids: typing.List[Snowflake.TYPING] = None,
             connector: typing.Dict[str, str] = None):
     if int(command_type) == ApplicationCommandTypes.CHAT_INPUT and not description:
         raise ValueError("description must be passed if type is CHAT_INPUT.")
+    if guild_id and guild_ids:
+        raise ValueError("guild_id and guild_ids cannot be both passed.")
+    elif guild_id:
+        warnings.warn("guild_id is deprecated, use guild_ids instead.", DeprecationWarning, stacklevel=2)
+        guild_ids = [guild_id]
     description = description or ""
     options = options or []
     if subcommand:
@@ -47,7 +55,7 @@ def command(name: str = None,
 
     def wrap(coro):
         _command = ApplicationCommand(name or coro.__name__, description, command_type, options, default_permission)
-        cmd = InteractionCommand(coro, _command, guild_id, subcommand, subcommand_group, connector=connector)
+        cmd = InteractionCommand(coro=coro, command=_command, guild_ids=guild_ids, subcommand=subcommand, subcommand_group=subcommand_group, connector=connector)
         return cmd
 
     return wrap
@@ -62,7 +70,8 @@ def slash(name: str = None,
           subcommand_group_description: str = None,
           options: typing.List[ApplicationCommandOption] = None,
           default_permission: bool = True,
-          guild_id: typing.Union[int, str, Snowflake] = None,
+          guild_id: Snowflake.TYPING = None,
+          guild_ids: typing.List[Snowflake.TYPING] = None,
           connector: typing.Dict[str, str] = None):
     return command(name=name,
                    subcommand=subcommand,
@@ -73,15 +82,17 @@ def slash(name: str = None,
                    options=options,
                    default_permission=default_permission,
                    guild_id=guild_id,
+                   guild_ids=guild_ids,
                    connector=connector)
 
 
 def context_menu(name: str = None,
                  menu_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.MESSAGE,
-                 guild_id: typing.Union[int, str, Snowflake] = None):
+                 guild_id: Snowflake.TYPING = None,
+                 guild_ids: typing.List[Snowflake.TYPING] = None):
     if int(menu_type) == ApplicationCommandTypes.CHAT_INPUT:
         raise TypeError("unsupported context menu type for context_menu decorator.")
-    return command(name=name, description="", command_type=menu_type, guild_id=guild_id)
+    return command(name=name, description="", command_type=menu_type, guild_id=guild_id, guild_ids=guild_ids)
 
 
 def option(option_type: typing.Union[ApplicationCommandOptionType, int],

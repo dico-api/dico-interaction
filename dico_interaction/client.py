@@ -2,6 +2,7 @@ import sys
 import typing
 import asyncio
 import logging
+import warnings
 import traceback
 import copy
 
@@ -52,6 +53,7 @@ class InteractionClient:
                  client: typing.Optional[Client] = None,
                  auto_register_commands: bool = False,
                  guild_id_lock: typing.Optional[Snowflake.TYPING] = None,
+                 guild_ids_lock: typing.Optional[typing.List[Snowflake.TYPING]] = None,
                  context_cls: typing.Type[InteractionContext] = InteractionContext):
         self.loop = loop or asyncio.get_event_loop()
 
@@ -65,7 +67,12 @@ class InteractionClient:
 
         self.logger = logging.getLogger("dico.interaction")
         self.respond_via_endpoint = respond_via_endpoint
-        self.guild_id_lock = guild_id_lock
+        if guild_id_lock and guild_ids_lock:
+            raise ValueError("You can't set both guild_id and guild_ids")
+        elif guild_id_lock:
+            warnings.warn("guild_id_lock is deprecated, use guild_ids_lock instead.", DeprecationWarning, stacklevel=2)
+            guild_ids_lock = [guild_id_lock]
+        self.guild_id_locks = guild_ids_lock
         self.context_cls = context_cls
         self.client = client
         if self.client is not None:
@@ -264,10 +271,11 @@ class InteractionClient:
         cmds = {"global": [], "guild": {}}
 
         for cmd in self.commands.values():
-            if cmd.guild_id is not None:
-                if cmds["guild"].get(cmd.guild_id) is None:
-                    cmds["guild"][cmd.guild_id] = []
-                cmds["guild"][cmd.guild_id].append(cmd.command)
+            if cmd.guild_ids:
+                for guild_id in cmd.guild_ids:
+                    if cmds["guild"].get(guild_id) is None:
+                        cmds["guild"][guild_id] = []
+                    cmds["guild"][guild_id].append(cmd.command)
             else:
                 cmds["global"].append(cmd.command)
 
@@ -275,49 +283,61 @@ class InteractionClient:
 
         for p_cmd in self.subcommands.values():
             for c_cmd in p_cmd.values():
-                if c_cmd.guild_id is not None:
-                    subcommands["guild"][c_cmd.guild_id] = {}
+                if c_cmd.guild_ids:
+                    for guild_id in c_cmd.guild_ids:
+                        subcommands["guild"][guild_id] = {}
 
         for p_cmd in self.subcommand_groups.values():
             for c_cmd in p_cmd.values():
                 for s_cmd in c_cmd.values():
-                    if s_cmd.guild_id is not None:
-                        subcommands["guild"][s_cmd.guild_id] = {}
+                    if s_cmd.guild_ids is not None:
+                        for guild_id in s_cmd.guild_ids:
+                            subcommands["guild"][guild_id] = {}
 
         for p_k, p_v in self.subcommands.items():
             for c_k, c_v in p_v.items():
-                if c_v.guild_id is not None:
-                    data = subcommands["guild"][c_v.guild_id]
+                datas = []
+                if c_v.guild_ids:
+                    for guild_id in c_v.guild_ids:
+                        datas.append(subcommands["guild"][guild_id])
                 else:
-                    data = subcommands["global"]
+                    datas = [subcommands["global"]]
 
-                if data.get(p_k) is None:
-                    data[p_k] = {}
-                data[p_k][c_k] = c_v.command
+                for data in datas:
+                    if data.get(p_k) is None:
+                        data[p_k] = {}
+                    data[p_k][c_k] = c_v.command
 
-                if c_v.guild_id is not None:
-                    subcommands["guild"][c_v.guild_id] = data
-                else:
-                    subcommands["global"] = data
+                for data in datas:
+                    if c_v.guild_ids:
+                        for guild_id in c_v.guild_ids:
+                            subcommands["guild"][guild_id] = data
+                    else:
+                        subcommands["global"] = data
 
         for p_k, p_v in self.subcommand_groups.items():
             for c_k, c_v in p_v.items():
                 for s_k, s_v in c_v.items():
-                    if s_v.guild_id is not None:
-                        data = subcommands["guild"][s_v.guild_id]
+                    datas = []
+                    if s_v.guild_ids:
+                        for guild_id in s_v.guild_ids:
+                            datas.append(subcommands["guild"][guild_id])
                     else:
-                        data = subcommands["global"]
+                        datas = [subcommands["global"]]
 
-                    if data.get(p_k) is None:
-                        data[p_k] = {}
-                    if data[p_k].get(c_k) is None:
-                        data[p_k][c_k] = {}
-                    data[p_k][c_k][s_k] = s_v.command
+                    for data in datas:
+                        if data.get(p_k) is None:
+                            data[p_k] = {}
+                        if data[p_k].get(c_k) is None:
+                            data[p_k][c_k] = {}
+                        data[p_k][c_k][s_k] = s_v.command
 
-                    if s_v.guild_id is not None:
-                        subcommands["guild"][s_v.guild_id] = data
-                    else:
-                        subcommands["global"] = data
+                    for data in datas:
+                        if s_v.guild_ids is not None:
+                            for guild_id in s_v.guild_ids:
+                                subcommands["guild"][guild_id] = data
+                        else:
+                            subcommands["global"] = data
 
         def get_command(data):
             data = data.values()
@@ -360,8 +380,8 @@ class InteractionClient:
 
         :param interaction: Command to add.
         """
-        if self.guild_id_lock:
-            interaction.guild_id = self.guild_id_lock
+        if self.guild_id_locks:
+            interaction.guild_ids = self.guild_id_locks
         subcommand_group = interaction.subcommand_group
         subcommand = interaction.subcommand
         name = interaction.command.name
@@ -474,7 +494,8 @@ class InteractionClient:
                 command_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.CHAT_INPUT,
                 options: typing.List[ApplicationCommandOption] = None,
                 default_permission: bool = True,
-                guild_id: typing.Union[int, str, Snowflake] = None,
+                guild_id: Snowflake.TYPING = None,
+                guild_ids: typing.List[Snowflake.TYPING] = None,
                 connector: typing.Dict[str, str] = None):
         """
         Creates and registers interaction command to the client.
@@ -494,7 +515,8 @@ class InteractionClient:
         :param command_type: Type of command.
         :param options: Options of the command.
         :param default_permission: Whether default permission is enabled.
-        :param guild_id: ID of the guild.
+        :param guild_id: ID of the guild. This is deprecated since ``0.0.7``.
+        :param guild_ids: List of ID of the guilds.
         :param connector: Option parameter connector.
         """
         def wrap(coro):
@@ -508,6 +530,7 @@ class InteractionClient:
                                options=options,
                                default_permission=default_permission,
                                guild_id=guild_id,
+                               guild_ids=guild_ids,
                                connector=connector)(coro)
             self.add_command(cmd)
             return cmd
@@ -523,7 +546,8 @@ class InteractionClient:
               subcommand_group_description: str = None,
               options: typing.List[ApplicationCommandOption] = None,
               default_permission: bool = True,
-              guild_id: typing.Union[int, str, Snowflake] = None,
+              guild_id: Snowflake.TYPING = None,
+              guild_ids: typing.List[Snowflake.TYPING] = None,
               connector: typing.Dict[str, str] = None):
         """
         Creates and registers slash command to the client.
@@ -554,7 +578,8 @@ class InteractionClient:
         :param subcommand_group_description: Description of subcommand group.
         :param options: Options of the command.
         :param default_permission: Whether default permission is enabled.
-        :param guild_id: ID of the guild.
+        :param guild_id: ID of the guild. This is deprecated since ``0.0.7``.
+        :param guild_ids: List of ID of the guilds.
         :param connector: Option parameter connector.
         """
         return self.command(name=name,
@@ -566,22 +591,25 @@ class InteractionClient:
                             options=options,
                             default_permission=default_permission,
                             guild_id=guild_id,
+                            guild_ids=guild_ids,
                             connector=connector)
 
     def context_menu(self,
                      name: str = None,
                      menu_type: typing.Union[int, ApplicationCommandTypes] = ApplicationCommandTypes.MESSAGE,
-                     guild_id: typing.Union[int, str, Snowflake] = None):
+                     guild_id: Snowflake.TYPING = None,
+                     guild_ids: typing.List[Snowflake.TYPING] = None):
         """
         Creates and registers context menu to the client.
 
         :param name: Name of the command.
         :param menu_type: Type of the context menu.
-        :param guild_id: ID of the guild.
+        :param guild_id: ID of the guild. This is deprecated since ``0.0.7``.
+        :param guild_ids: List of ID of the guilds.
         """
         if int(menu_type) == ApplicationCommandTypes.CHAT_INPUT:
             raise TypeError("unsupported context menu type for context_menu decorator.")
-        return self.command(name=name, description="", command_type=menu_type, guild_id=guild_id)
+        return self.command(name=name, description="", command_type=menu_type, guild_id=guild_id, guild_ids=guild_ids)
 
     def component_callback(self, custom_id: str = None):
         """
