@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="UTF-8") as f:
 
 setuptools.setup(
     name="dico-interaction",
-    version="0.0.6",
+    version="0.0.7",
     author="eunwoo1104",
     author_email="sions04@naver.com",
     description="Interaction module for dico.",
