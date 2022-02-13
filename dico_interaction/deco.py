@@ -7,6 +7,7 @@ from dico import (
 from .command import InteractionCommand
 from .context import InteractionContext
 from .component import ComponentCallback
+from .modal import ModalCallback
 
 
 def command(name: str = None,
@@ -145,4 +146,10 @@ def checks(*funcs: typing.Callable[[InteractionContext], typing.Union[bool, typi
 def component_callback(custom_id: str = None):
     def wrap(coro):
         return ComponentCallback(custom_id, coro)
+    return wrap
+
+
+def modal_callback(custom_id: str = None):
+    def wrap(coro):
+        return ModalCallback(custom_id, coro)
     return wrap

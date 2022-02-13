@@ -4,7 +4,6 @@ import asyncio
 import logging
 import warnings
 import traceback
-import copy
 
 from dico import (
     ApplicationCommand,
@@ -21,6 +20,7 @@ from .command import autocomplete as autocomplete_deco
 from .deco import command as command_deco
 from .component import ComponentCallback
 from .context import InteractionContext
+from .modal import ModalCallback
 
 
 class InteractionClient:
@@ -64,6 +64,7 @@ class InteractionClient:
 
         self.components = {}
         self.autocompletes = {}
+        self.modals = {}
 
         self.logger = logging.getLogger("dico.interaction")
         self.respond_via_endpoint = respond_via_endpoint
@@ -126,6 +127,12 @@ class InteractionClient:
                     target = self.components.get(maybe[0])
         elif interaction.type.application_command_autocomplete:
             target = self.get_autocomplete(interaction)
+        elif interaction.type.modal_submit:
+            target = self.modals.get(interaction.data.custom_id)
+            if not target:
+                maybe = [x for x in self.modals if interaction.data.custom_id.startswith(x)]
+                if maybe:
+                    target = self.modals.get(maybe[0])
         else:
             return
 
@@ -430,24 +437,26 @@ class InteractionClient:
             else:
                 raise
 
-    def add_callback(self, callback: ComponentCallback):
+    def add_callback(self, callback: typing.Union[ComponentCallback, ModalCallback]):
         """
-        Adds component callback to the client.
+        Adds component or modal callback to the client.
 
         :param callback: Callback to add.
         """
-        if callback.custom_id in self.components:
+        tgt = self.modals if isinstance(callback, ModalCallback) else self.components
+        if callback.custom_id in tgt:
             raise
-        self.components[callback.custom_id] = callback
+        tgt[callback.custom_id] = callback
 
-    def remove_callback(self, callback: ComponentCallback):
+    def remove_callback(self, callback: typing.Union[ComponentCallback, ModalCallback]):
         """
         Removes callback from client.
 
         :param callback: Callback to remove.
         """
-        if callback.custom_id in self.components:
-            del self.components[callback.custom_id]
+        tgt = self.modals if isinstance(callback, ModalCallback) else self.components
+        if callback.custom_id in tgt:
+            del tgt[callback.custom_id]
         else:
             raise
 
@@ -646,4 +655,16 @@ class InteractionClient:
             autocomplete = autocomplete_deco(*names, name=name, subcommand_group=subcommand_group, subcommand=subcommand, option=option)(coro)
             self.add_autocomplete(autocomplete)
             return autocomplete
+        return wrap
+
+    def modal(self, custom_id: str = None):
+        """
+        Adds modal callback to the client.
+
+        :param custom_id: Custom ID of the modal. Can be prefix of the custom ID.
+        """
+        def wrap(coro):
+            callback = ModalCallback(custom_id, coro)
+            self.add_callback(callback)
+            return callback
         return wrap
