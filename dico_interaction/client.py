@@ -20,6 +20,7 @@ from .command import autocomplete as autocomplete_deco
 from .deco import command as command_deco
 from .component import ComponentCallback
 from .context import InteractionContext
+from .exception import AlreadyExists, NotExists
 from .modal import ModalCallback
 
 
@@ -398,17 +399,17 @@ class InteractionClient:
             if subcommand_group not in self.subcommand_groups[name]:
                 self.subcommand_groups[name][subcommand_group] = {}
             if subcommand in self.subcommand_groups[name][subcommand_group]:
-                raise
+                raise AlreadyExists("command", f"{subcommand_group} {subcommand} {name}")
             self.subcommand_groups[name][subcommand_group][subcommand] = interaction
         elif subcommand:
             if name not in self.subcommands:
                 self.subcommands[name] = {}
             if subcommand in self.subcommands[name]:
-                raise
+                raise AlreadyExists("command", f"{subcommand} {name}")
             self.subcommands[name][subcommand] = interaction
         else:
             if name in self.commands:
-                raise
+                raise AlreadyExists("command", name)
             self.commands[name] = interaction
 
     def remove_command(self, interaction: InteractionCommand):
@@ -425,17 +426,17 @@ class InteractionClient:
                     subcommand in self.subcommand_groups[name][subcommand_group]:
                 del self.subcommand_groups[name][subcommand_group][subcommand]
             else:
-                raise
+                raise NotExists("command", f"{subcommand_group} {subcommand} {name}")
         elif subcommand:
             if name in self.subcommands and subcommand in self.subcommands[name]:
                 del self.subcommands[name][subcommand]
             else:
-                raise
+                raise NotExists("command", f"{subcommand} {name}")
         else:
             if name in self.commands:
                 del self.commands[name]
             else:
-                raise
+                raise NotExists("command", name)
 
     def add_callback(self, callback: typing.Union[ComponentCallback, ModalCallback]):
         """
@@ -445,7 +446,7 @@ class InteractionClient:
         """
         tgt = self.modals if isinstance(callback, ModalCallback) else self.components
         if callback.custom_id in tgt:
-            raise
+            raise AlreadyExists(f"{'modal' if isinstance(callback, ModalCallback) else 'component'} callback", callback.custom_id)
         tgt[callback.custom_id] = callback
 
     def remove_callback(self, callback: typing.Union[ComponentCallback, ModalCallback]):
@@ -458,7 +459,7 @@ class InteractionClient:
         if callback.custom_id in tgt:
             del tgt[callback.custom_id]
         else:
-            raise
+            raise NotExists(f"{'modal' if isinstance(callback, ModalCallback) else 'component'} callback", callback.custom_id)
 
     def add_autocomplete(self, autocomplete: AutoComplete):
         """
@@ -471,9 +472,9 @@ class InteractionClient:
         elif autocomplete.subcommand:
             key = f"{autocomplete.name}:{autocomplete.subcommand}:{autocomplete.option}"
         else:
-            key = f"{autocomplete.name}:{autocomplete.name}"
+            key = f"{autocomplete.name}:{autocomplete.option}"
         if key in self.autocompletes:
-            raise
+            raise AlreadyExists("autocomplete", f"/{key.replace(':', ' ')}:")
         self.autocompletes[key] = autocomplete
 
     def remove_autocomplete(self, autocomplete: AutoComplete):
@@ -487,9 +488,9 @@ class InteractionClient:
         elif autocomplete.subcommand:
             key = f"{autocomplete.name}:{autocomplete.subcommand}:{autocomplete.option}"
         else:
-            key = f"{autocomplete.name}:{autocomplete.name}"
+            key = f"{autocomplete.name}:{autocomplete.option}"
         if key not in self.autocompletes:
-            raise
+            raise NotExists("autocomplete", f"/{key.replace(':', ' ')}:")
         del self.autocompletes[key]
 
     def command(self,
