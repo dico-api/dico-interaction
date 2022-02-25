@@ -13,4 +13,4 @@ from .context import InteractionContext
 from .deco import command, slash, context_menu, component_callback, checks, option, modal_callback
 from .webserver import InteractionWebserver
 
-__version__ = "0.0.8"
+__version__ = "0.0.9"
