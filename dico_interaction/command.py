@@ -70,6 +70,7 @@ class InteractionCommand:
         if not await self.evaluate_checks(interaction):
             raise CheckFailed
         param_data = read_function(self.coro)
+        interaction.options = options
         options = {self.connector.get(k, k): v for k, v in options.items()}
         required_options = {k: v for k, v in param_data.items() if v["required"]}
         missing_options = [x for x in required_options if x not in options]

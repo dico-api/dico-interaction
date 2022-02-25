@@ -13,6 +13,7 @@ class InteractionContext(Interaction):
         self.response = asyncio.Future()
         self.deferred = False
         self.logger = resp["logger"]
+        self.options = {}
 
     def defer(self, ephemeral: bool = False, update_message: bool = False):
         if self.type.application_command or self.type.modal_submit:
