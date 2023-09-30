@@ -104,7 +104,11 @@ def option(option_type: typing.Union[ApplicationCommandOptionType, int],
            choices: typing.Optional[typing.List[ApplicationCommandOptionChoice]] = None,
            autocomplete: typing.Optional[bool] = None,
            options: typing.Optional[typing.List[ApplicationCommandOption]] = None,
-           channel_types: typing.Optional[typing.List[typing.Union[int, ChannelTypes]]] = None,):
+           channel_types: typing.Optional[typing.List[typing.Union[int, ChannelTypes]]] = None,
+           min_value: typing.Optional[typing.Union[int, float]] = None,
+           max_value: typing.Optional[typing.Union[int, float]] = None,
+           min_length: typing.Optional[int] = None,
+           max_length: typing.Optional[int] = None,):
     if int(option_type) == ApplicationCommandOptionType.SUB_COMMAND_GROUP and choices:
         raise TypeError("choices is not allowed if option type is SUB_COMMAND_GROUP.")
     if int(option_type) == ApplicationCommandOptionType.SUB_COMMAND_GROUP and not options:
@@ -116,7 +120,11 @@ def option(option_type: typing.Union[ApplicationCommandOptionType, int],
                                              choices=choices,
                                              autocomplete=autocomplete,
                                              options=options,
-                                             channel_types=channel_types)
+                                             channel_types=channel_types,
+                                             min_value=min_value,
+                                             max_value=max_value,
+                                             min_length=min_length,
+                                             max_length=max_length)
 
     def wrap(maybe_cmd):
         if isinstance(maybe_cmd, InteractionCommand):
