@@ -55,7 +55,7 @@ def command(name: str = None,
                                             options=options.copy())]
 
     def wrap(coro):
-        _command = ApplicationCommand(name or coro.__name__, description, command_type, options, default_permission)
+        _command = ApplicationCommand(name=name or coro.__name__, description=description, command_type=command_type, options=options, default_permission=default_permission)
         cmd = InteractionCommand(coro=coro, command=_command, guild_ids=guild_ids, subcommand=subcommand, subcommand_group=subcommand_group, connector=connector)
         return cmd
 
